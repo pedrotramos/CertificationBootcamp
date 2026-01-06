@@ -25,7 +25,7 @@ jobs:
           echo "base_path=/$REPO_NAME/" >> $GITHUB_OUTPUT
       - name: Debug environment variables
         run: |
-          if [ -z "${{ secrets.VITE_API_URL }}" ] && [ -z "${{ vars.VITE_API_URL }}" ]; then
+          if [ -z "${{ secrets.VITE_API_URL }}" ]; then
             echo "::warning::VITE_API_URL is not set in secrets or variables"
           else
             echo "VITE_API_URL is configured"
@@ -33,7 +33,7 @@ jobs:
       - name: Build application
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL || vars.VITE_API_URL }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_BASE_PATH: ${{ steps.base_path.outputs.base_path }}
       - uses: actions/upload-pages-artifact@v3
         with:
