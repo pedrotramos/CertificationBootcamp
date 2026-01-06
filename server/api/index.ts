@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import { MongoClient, ObjectId, Db } from 'mongodb';
+import { MongoClient, Db } from 'mongodb';
 import dotenv from 'dotenv';
-import { User, Question, ExamResult } from '../types';
+import { User, Question, ExamResult } from '../../types';
 
 dotenv.config();
 
@@ -15,7 +15,7 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/certif
 const DB_NAME = process.env.DB_NAME || 'certificationbootcamp';
 
 let client: MongoClient | null = null;
-let db: Db | null = null;
+let db: Db;
 
 // MongoDB connection
 async function connectToMongoDB() {
@@ -190,3 +190,4 @@ process.on('SIGINT', async () => {
     process.exit(0);
 });
 
+export default app;
