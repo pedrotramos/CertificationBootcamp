@@ -1,7 +1,7 @@
 
 import { User, Question, ExamResult } from '../types';
 
-const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:3001/api';
 
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
