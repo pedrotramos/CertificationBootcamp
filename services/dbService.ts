@@ -2,7 +2,6 @@
 import { User, Question, ExamResult } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
-console.log(API_BASE_URL)
 
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
@@ -24,6 +23,10 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 export const dbService = {
   getQuestions: async (): Promise<Question[]> => {
     return apiRequest<Question[]>('/questions');
+  },
+
+  getAnsweredQuestions: async (userId: string): Promise<Question[]> => {
+    return apiRequest<Question[]>(`/results/user/${encodeURIComponent(userId)}/questions`);
   },
 
   getUserByEmail: async (email: string): Promise<User | null> => {

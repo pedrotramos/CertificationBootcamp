@@ -82,6 +82,8 @@ const App: React.FC = () => {
       if (existingUser) {
         const results = await dbService.getUserResults(existingUser._id.toString());
         if (results.length > 0) {
+          const questions = await dbService.getAnsweredQuestions(existingUser._id.toString());
+          setQuestions(questions);
           setUser(existingUser);
           setFinalResult(results[0]);
           setState('results');
@@ -306,7 +308,6 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <h3 className="text-xl font-black text-[#1B3139] uppercase tracking-widest border-l-4 border-[#FF3621] pl-4">Revisão do Bootcamp</h3>
               {finalResult.answers.map((answer, index) => {
-                console.log(answer)
                 const question = questions.find(q => q._id === answer.questionId)!;
                 return (
                   <Card key={answer.questionId} className={`p-8 border-l-4 ${answer.isCorrect ? 'border-l-green-500' : 'border-l-[#FF3621]'} shadow-sm`}>
