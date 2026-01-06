@@ -23,7 +23,15 @@ jobs:
         run: |
           REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
           echo "base_path=/$REPO_NAME/" >> $GITHUB_OUTPUT
-      - run: npm run build
+      - name: Debug environment variables
+        run: |
+          if [ -z "${{ secrets.VITE_API_URL }}" ] && [ -z "${{ vars.VITE_API_URL }}" ]; then
+            echo "::warning::VITE_API_URL is not set in secrets or variables"
+          else
+            echo "VITE_API_URL is configured"
+          fi
+      - name: Build application
+        run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL || vars.VITE_API_URL }}
           VITE_BASE_PATH: ${{ steps.base_path.outputs.base_path }}
