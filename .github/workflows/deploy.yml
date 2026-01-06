@@ -18,9 +18,15 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
+      - name: Set base path
+        id: base_path
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2)
+          echo "base_path=/$REPO_NAME/" >> $GITHUB_OUTPUT
       - run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL || vars.VITE_API_URL }}
+          VITE_BASE_PATH: ${{ steps.base_path.outputs.base_path }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
