@@ -30,7 +30,7 @@ export const dbService = {
   },
 
   getUserByEmail: async (email: string): Promise<User | null> => {
-    return apiRequest<User | null>(`/users/email/${encodeURIComponent(email)}`);
+    return apiRequest<User | null>(`/users/email/${email}`);
   },
 
   saveUser: async (user: Omit<User, 'id'>): Promise<User> => {
