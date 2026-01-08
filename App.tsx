@@ -409,7 +409,7 @@ const App: React.FC = () => {
             </svg>
           </div>
           <span className="text-xl font-black tracking-tighter uppercase italic">
-            CERTIFICATION <span className="text-[#FF3621]">BOOTCAMP</span>
+            CERTIFICATION <span className="text-[#FF3621]">PREPCAMP</span>
           </span>
         </div>
         {user && (
