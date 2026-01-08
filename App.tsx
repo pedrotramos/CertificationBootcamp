@@ -724,7 +724,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-2 md:gap-4 cursor-pointer" onClick={() => setState('register')}>
           <div className="w-32 h-8 md:w-64 md:h-16 flex items-center justify-center">
             <img
-              src="public/databricks-logo.svg"
+              src={`${import.meta.env.BASE_URL}databricks-logo.svg`}
               alt="Databricks Logo"
               className="w-full h-full object-contain"
             />
