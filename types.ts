@@ -35,10 +35,11 @@ export interface ExamResult {
     questionId: string;
     selectedOptionId: string;
     isCorrect: boolean;
+    category: string;
   }[];
 }
 
-export type AppState = 'welcome' | 'register' | 'exam' | 'results';
+export type AppState = 'welcome' | 'register' | 'exam' | 'results' | 'contact' | 'faq';
 
 /**
  * Maps question IDs to the selected option ID for each question.
