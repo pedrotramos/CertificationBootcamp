@@ -151,7 +151,7 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto py-12 px-4 grid md:grid-cols-2 gap-12 items-center animate-in fade-in duration-700">
             <div className="space-y-6">
               <h1 className="text-4xl md:text-5xl font-extrabold text-[#1B3139] leading-tight uppercase">
-                Certification <span className="text-[#FF3621]">Bootcamp</span>
+                Certification <span className="text-[#FF3621]">PrepCamp</span>
               </h1>
               <p className="text-lg text-slate-600">
                 O caminho definitivo para sua especialização em Databricks. Valide suas competências técnicas e se prepare para a certificação.
@@ -242,7 +242,7 @@ const App: React.FC = () => {
                 Anterior
               </Button>
               <Button onClick={handleNext} disabled={!answers[currentQuestion._id]} isLoading={isSubmitting}>
-                {currentQuestionIndex === questions.length - 1 ? 'Finalizar Bootcamp' : 'Próxima Questão'}
+                {currentQuestionIndex === questions.length - 1 ? 'Finalizar Simulado' : 'Próxima Questão'}
               </Button>
             </div>
           </div>
@@ -306,7 +306,7 @@ const App: React.FC = () => {
             </Card>
 
             <div className="space-y-6">
-              <h3 className="text-xl font-black text-[#1B3139] uppercase tracking-widest border-l-4 border-[#FF3621] pl-4">Revisão do Bootcamp</h3>
+              <h3 className="text-xl font-black text-[#1B3139] uppercase tracking-widest border-l-4 border-[#FF3621] pl-4">Revisão do Simulado</h3>
               {finalResult.answers.map((answer, index) => {
                 const question = questions.find(q => q._id === answer.questionId)!;
                 return (
