@@ -449,9 +449,7 @@ const App: React.FC = () => {
                     </span>
                   </summary>
                   <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-                    O foco principal são certificações técnicas de nível Associate e Professional relacionadas a engenharia de
-                    dados, ciência de dados e arquitetura em Databricks. À medida que novos exames são lançados, o banco de
-                    questões pode ser atualizado para refletir os conteúdos mais atuais.
+                    O foco principal é a certificação Data Engineer Associate. Simulados para outras certificações serão disponibilizados no futuro.
                   </div>
                 </details>
 
