@@ -171,9 +171,9 @@ export const dbService = {
     return data;
   },
 
-  checkDomain: async (email: string): Promise<boolean> => {
+  checkDomain: async (email: string): Promise<{ whitelisted: boolean; company?: string }> => {
     const domain = email.split('@')[1];
-    return apiRequest<boolean>(`/domain/${encodeURIComponent(domain)}`);
+    return apiRequest<{ whitelisted: boolean; company?: string }>(`/domain/${encodeURIComponent(domain)}`);
   },
 
   generateOTP: async (email: string): Promise<{ email: string; message?: string }> => {

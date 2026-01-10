@@ -201,40 +201,40 @@ const App: React.FC = () => {
       if (validatedEmail) {
         // User has validated OTP before - check their status
         const existingUser = await dbService.getUserByEmail(validatedEmail);
-          if (existingUser) {
-            setUser(existingUser);
-            setIsAuthenticated(true);
-            // Pre-fill form with user data
-            setFormData({
-              firstName: existingUser.firstName,
-              lastName: existingUser.lastName,
-              email: existingUser.email,
-              company: existingUser.company
-            });
+        if (existingUser) {
+          setUser(existingUser);
+          setIsAuthenticated(true);
+          // Pre-fill form with user data
+          setFormData({
+            firstName: existingUser.firstName,
+            lastName: existingUser.lastName,
+            email: existingUser.email,
+            company: existingUser.company
+          });
 
-            // Check if they've taken the test
-            // Get exam from localStorage first
-            const savedExam = localStorage.getItem(SELECTED_EXAM_KEY);
-            if (savedExam) {
-              setSelectedExam(savedExam);
-              const results = await dbService.getUserResults(existingUser._id.toString(), savedExam);
-              if (results.length > 0) {
-                // User has taken the test - go to results
-                setHasResults(true);
-                const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), savedExam);
-                setQuestions(questions);
-                setFinalResult(results[0]);
-                navigate('/results');
-              } else {
-                // User hasn't taken the test - stay on home page to select exam
-                setHasResults(false);
-                // Don't navigate to exam automatically, user needs to select an exam first
-              }
+          // Check if they've taken the test
+          // Get exam from localStorage first
+          const savedExam = localStorage.getItem(SELECTED_EXAM_KEY);
+          if (savedExam) {
+            setSelectedExam(savedExam);
+            const results = await dbService.getUserResults(existingUser._id.toString(), savedExam);
+            if (results.length > 0) {
+              // User has taken the test - go to results
+              setHasResults(true);
+              const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), savedExam);
+              setQuestions(questions);
+              setFinalResult(results[0]);
+              navigate('/results');
             } else {
-              // No saved exam - user needs to select an exam first
-              setHasResults(false);
               // User hasn't taken the test - stay on home page to select exam
+              setHasResults(false);
+              // Don't navigate to exam automatically, user needs to select an exam first
             }
+          } else {
+            // No saved exam - user needs to select an exam first
+            setHasResults(false);
+            // User hasn't taken the test - stay on home page to select exam
+          }
           return true; // Session found and restored
         } else {
           // User not found - clear invalid session
@@ -250,6 +250,11 @@ const App: React.FC = () => {
       setIsAuthenticated(false);
       return false;
     }
+  };
+
+  const handleLogoClick = () => {
+    setIsMobileMenuOpen(false);
+    navigate('/');
   };
 
   const handleGoHome = async () => {
@@ -397,9 +402,14 @@ const App: React.FC = () => {
         return;
       }
 
-      const whitelistedDomain = await dbService.checkDomain(formData.email);
+      const domainCheck = await dbService.checkDomain(formData.email);
 
-      const emailValidation = validateEmail(formData.email, whitelistedDomain);
+      // Store company from domain check (will be used when saving user)
+      if (domainCheck.company) {
+        setFormData(prev => ({ ...prev, company: domainCheck.company! }));
+      }
+
+      const emailValidation = validateEmail(formData.email, domainCheck.whitelisted);
       if (!emailValidation.isValid) {
         setErrorMsg(emailValidation.message);
         return;
@@ -1082,7 +1092,7 @@ const App: React.FC = () => {
                       </p>
                     </div>
                     <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
-                      Iniciar Prova
+                      {hasResults ? 'Ver Resultados' : 'Iniciar Prova'}
                     </Button>
                   </>
                 ) : (
@@ -1096,10 +1106,6 @@ const App: React.FC = () => {
                         <label className="text-[10px] font-black uppercase text-slate-400">Sobrenome</label>
                         <input required disabled={otpSent} className={inputClasses} placeholder="Sobrenome" value={formData.lastName} onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))} />
                       </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400">Empresa</label>
-                      <input required disabled={otpSent} className={inputClasses} placeholder="Ex: Databricks, Microsoft, etc" value={formData.company} onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))} />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-black uppercase text-slate-400">E-mail Corporativo</label>
@@ -1391,9 +1397,8 @@ const App: React.FC = () => {
 
       {/* Mobile Sidebar */}
       <div
-        className={`fixed top-0 right-0 h-full w-64 bg-[#1B3139] text-white transform transition-transform duration-300 ease-in-out z-50 md:hidden ${
-          isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}
+        className={`fixed top-0 right-0 h-full w-64 bg-[#1B3139] text-white transform transition-transform duration-300 ease-in-out z-50 md:hidden ${isMobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
       >
         <div className="flex flex-col h-full">
           <div className="flex items-center justify-between p-4 border-b border-slate-700">
@@ -1495,7 +1500,7 @@ const App: React.FC = () => {
       </div>
 
       <nav className="bg-[#1B3139] text-white px-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-xl border-b border-slate-800">
-        <div className="flex items-center gap-2 md:gap-4 cursor-pointer" onClick={handleGoHome}>
+        <div className="flex items-center gap-2 md:gap-4 cursor-pointer" onClick={handleLogoClick}>
           <div className="w-32 h-8 md:w-64 md:h-16 flex items-center justify-center">
             <img
               src={`${import.meta.env.BASE_URL}databricks-logo.svg`}
