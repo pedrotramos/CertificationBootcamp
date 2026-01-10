@@ -21,15 +21,16 @@ const QuestionView: React.FC<QuestionViewProps> = ({
           CATEGORIA: {question.category}
         </span>
         <h2
-          className="text-2xl md:text-3xl font-extrabold text-[#1B3139] leading-tight"
+          className="text-2xl md:text-3xl font-extrabold text-[#1B3139] leading-tight break-words [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:overflow-wrap-anywhere [&_pre]:max-w-full"
+          style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
           dangerouslySetInnerHTML={{ __html: question.enunciado }}
         />
         {question.enunciadoImageUrl && (
-          <div className="bg-white p-2 border border-slate-200 rounded">
+          <div className="bg-white p-2 border border-slate-200 rounded overflow-hidden">
             <img
               src={question.enunciadoImageUrl}
               alt="Contexto Técnico"
-              className="w-full rounded shadow-sm grayscale-0 hover:grayscale-0 transition-all"
+              className="w-full h-auto max-w-full rounded shadow-sm grayscale-0 hover:grayscale-0 transition-all object-contain"
             />
           </div>
         )}
@@ -45,18 +46,22 @@ const QuestionView: React.FC<QuestionViewProps> = ({
               : 'border-slate-100 hover:border-slate-300'
               }`}
           >
-            <div className="flex items-center gap-3">
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedOptionId === option.id ? 'border-[#FF3621] bg-[#FF3621]' : 'border-slate-300'}`}>
+            <div className="flex items-start gap-3 w-full flex-wrap">
+              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedOptionId === option.id ? 'border-[#FF3621] bg-[#FF3621]' : 'border-slate-300'}`}>
                 {selectedOptionId === option.id && <div className="w-2 h-2 bg-white rounded-full" />}
               </div>
-              <p className={`text-base font-bold ${selectedOptionId === option.id ? 'text-[#FF3621]' : 'text-[#1B3139]'}`}>
+              <p
+                className={`text-base font-bold break-words flex-1 min-w-0 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:overflow-wrap-anywhere [&_pre]:max-w-full ${selectedOptionId === option.id ? 'text-[#FF3621]' : 'text-[#1B3139]'}`}
+                style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+              >
                 {option.text}
               </p>
               {option.imageUrl && (
-                <div className="bg-white p-1 rounded border border-slate-100">
+                <div className="bg-white p-1 rounded border border-slate-100 overflow-hidden flex-shrink-0 w-full sm:w-auto">
                   <img
                     src={option.imageUrl}
                     alt={option.text}
+                    className="max-w-full h-auto object-contain"
                   />
                 </div>
               )}

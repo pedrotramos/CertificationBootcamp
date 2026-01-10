@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AppState, User, Question, ExamResult, Answers } from './types';
 import { dbService } from './services/dbService';
@@ -26,11 +26,23 @@ const PROHIBITED_DOMAINS = [
 // Helper functions to manage exam progress in localStorage
 const EXAM_PROGRESS_KEY = 'examProgress';
 const SELECTED_EXAM_KEY = 'selectedExam';
+const EXAM_TIMER_KEY = 'examTimer';
+
+const EXAM_DURATION_MS = 90 * 60 * 1000; // 90 minutes in milliseconds
 
 interface ExamProgress {
   answers: Answers;
   currentQuestionIndex: number;
   userId: string;
+}
+
+interface ExamTimer {
+  startTime: number;
+  elapsedWhenPaused: number;
+  isPaused: boolean;
+  lastPauseTime: number | null;
+  userId: string;
+  examId: string;
 }
 
 function saveExamProgress(answers: Answers, currentQuestionIndex: number, userId: string): void {
@@ -63,6 +75,57 @@ function clearExamProgress(): void {
   localStorage.removeItem(EXAM_PROGRESS_KEY);
 }
 
+function initializeExamTimer(userId: string, examId: string): ExamTimer {
+  const now = Date.now();
+  return {
+    startTime: now,
+    elapsedWhenPaused: 0,
+    isPaused: false,
+    lastPauseTime: null,
+    userId,
+    examId
+  };
+}
+
+function loadExamTimer(userId: string, examId: string): ExamTimer | null {
+  try {
+    const stored = localStorage.getItem(EXAM_TIMER_KEY);
+    if (!stored) return null;
+
+    const timer: ExamTimer = JSON.parse(stored);
+    if (timer.userId !== userId || timer.examId !== examId) return null;
+
+    return timer;
+  } catch {
+    return null;
+  }
+}
+
+function saveExamTimer(timer: ExamTimer): void {
+  localStorage.setItem(EXAM_TIMER_KEY, JSON.stringify(timer));
+}
+
+function clearExamTimer(): void {
+  localStorage.removeItem(EXAM_TIMER_KEY);
+}
+
+function getRemainingTime(timer: ExamTimer): number {
+  if (timer.isPaused) {
+    return Math.max(0, EXAM_DURATION_MS - timer.elapsedWhenPaused);
+  }
+
+  const now = Date.now();
+  const elapsed = timer.elapsedWhenPaused + (now - timer.startTime);
+  return Math.max(0, EXAM_DURATION_MS - elapsed);
+}
+
+function formatTime(ms: number): string {
+  const totalSeconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
 const App: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -85,6 +148,10 @@ const App: React.FC = () => {
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
+  const [examTimer, setExamTimer] = useState<ExamTimer | null>(null);
+  const [remainingTime, setRemainingTime] = useState<number>(EXAM_DURATION_MS);
+  const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
+  const examTimerRef = useRef<ExamTimer | null>(null);
 
   const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', company: '' });
 
@@ -156,6 +223,81 @@ const App: React.FC = () => {
       saveExamProgress(answers, currentQuestionIndex, user._id?.toString() || '');
     }
   }, [answers, currentQuestionIndex, location.pathname, user]);
+
+  // Initialize or resume timer when entering exam page
+  useEffect(() => {
+    if (location.pathname === '/exam' && user && selectedExam && questions.length > 0) {
+      const userId = user._id?.toString() || '';
+      const examId = selectedExam;
+
+      // Try to load existing timer
+      let timer = loadExamTimer(userId, examId);
+
+      if (!timer) {
+        // Initialize new timer
+        timer = initializeExamTimer(userId, examId);
+        saveExamTimer(timer);
+      } else if (timer.isPaused) {
+        // Resume timer - set new start time
+        const now = Date.now();
+        timer.startTime = now;
+        timer.isPaused = false;
+        timer.lastPauseTime = null;
+        saveExamTimer(timer);
+      }
+
+      setExamTimer(timer);
+      examTimerRef.current = timer;
+      const remaining = getRemainingTime(timer);
+      setRemainingTime(remaining);
+      setIsTimeExpired(remaining <= 0);
+    } else if (location.pathname !== '/exam' && examTimer && !examTimer.isPaused) {
+      // Pause timer when leaving exam page
+      const now = Date.now();
+      const currentElapsed = examTimer.elapsedWhenPaused + (now - examTimer.startTime);
+      const updatedTimer: ExamTimer = {
+        ...examTimer,
+        isPaused: true,
+        lastPauseTime: now,
+        elapsedWhenPaused: currentElapsed,
+        startTime: now // Update startTime for consistency
+      };
+      saveExamTimer(updatedTimer);
+      setExamTimer(updatedTimer);
+      examTimerRef.current = updatedTimer;
+    }
+  }, [location.pathname, user, selectedExam, questions.length]);
+
+  // Sync ref with timer state
+  useEffect(() => {
+    examTimerRef.current = examTimer;
+  }, [examTimer]);
+
+  // Update timer every second when on exam page
+  useEffect(() => {
+    if (location.pathname !== '/exam' || !examTimer || examTimer.isPaused || isTimeExpired) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const currentTimer = examTimerRef.current;
+      if (!currentTimer || currentTimer.isPaused) return;
+
+      const remaining = getRemainingTime(currentTimer);
+      setRemainingTime(remaining);
+
+      if (remaining <= 0) {
+        setIsTimeExpired(true);
+        clearInterval(interval);
+        // Auto-submit exam when time expires
+        if (user && questions.length > 0) {
+          finishExam();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [location.pathname, examTimer?.isPaused, isTimeExpired, user, questions.length]);
 
   // Check if user has results when user and exam are available
   useEffect(() => {
@@ -330,6 +472,13 @@ const App: React.FC = () => {
 
     // Clear exam progress
     clearExamProgress();
+
+    // Clear exam timer
+    clearExamTimer();
+    setExamTimer(null);
+    examTimerRef.current = null;
+    setRemainingTime(EXAM_DURATION_MS);
+    setIsTimeExpired(false);
 
     // Navigate to home page
     navigate('/');
@@ -538,8 +687,26 @@ const App: React.FC = () => {
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
+      // Scroll to top when navigating
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       finishExam();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(prev => prev - 1);
+      // Scroll to top when navigating
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleGoToQuestion = (index: number) => {
+    if (index >= 0 && index < questions.length) {
+      setCurrentQuestionIndex(index);
+      // Scroll to top of question area
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -556,11 +723,14 @@ const App: React.FC = () => {
 
     const score = examAnswers.filter(a => a.isCorrect).length;
 
+    const examToUse = selectedExam || localStorage.getItem(SELECTED_EXAM_KEY) || '';
+
     const result = {
       userId: user._id,
       timestamp: new Date(),
       score,
       totalQuestions: questions.length,
+      exam: examToUse,
       answers: examAnswers
     };
 
@@ -568,6 +738,11 @@ const App: React.FC = () => {
     setFinalResult(savedResult);
     setHasResults(true);
     clearExamProgress(); // Clear progress after exam is completed
+    clearExamTimer(); // Clear timer after exam is completed
+    setExamTimer(null);
+    examTimerRef.current = null;
+    setRemainingTime(EXAM_DURATION_MS);
+    setIsTimeExpired(false);
     navigate('/results');
     setIsSubmitting(false);
   };
@@ -587,22 +762,50 @@ const App: React.FC = () => {
         navigate('/');
         return null;
       }
-      const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+      const progress = (Object.keys(answers).length / questions.length) * 100;
+
+      const timeDisplay = formatTime(remainingTime);
+      const timePercentage = (remainingTime / EXAM_DURATION_MS) * 100;
+      const isTimeWarning = remainingTime < 15 * 60 * 1000; // Less than 15 minutes
+      const isTimeCritical = remainingTime < 5 * 60 * 1000; // Less than 5 minutes
 
       return (
-        <div className="max-w-5xl mx-auto py-8 px-4 space-y-8">
+        <div className="max-w-5xl mx-auto py-8 px-4 space-y-8 overflow-x-hidden">
           <div className="sticky top-[72px] bg-slate-50 py-4 z-10 border-b border-slate-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-black text-[#1B3139] uppercase tracking-[0.2em]">
-                Questão: {currentQuestionIndex + 1} / {questions.length}
+                Respondidas: {Object.keys(answers).length} / {questions.length}
               </span>
-              <span className="text-xs font-black text-[#FF3621]">
-                {Math.round(progress)}%
-              </span>
+              <div className="flex items-center gap-4">
+                <div className={`flex items-center gap-2 ${isTimeCritical ? 'text-red-600' : isTimeWarning ? 'text-orange-600' : 'text-[#1B3139]'}`}>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className={`text-xs font-black ${isTimeCritical ? 'animate-pulse' : ''}`}>
+                    {isTimeExpired ? '00:00' : timeDisplay}
+                  </span>
+                </div>
+                <span className="text-xs font-black text-[#FF3621]">
+                  {Math.round(progress)}%
+                </span>
+              </div>
             </div>
-            <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
-              <div className="h-full bg-[#FF3621] transition-all duration-300" style={{ width: `${progress}%` }} />
+            <div className="space-y-2">
+              <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                <div className="h-full bg-[#FF3621] transition-all duration-300" style={{ width: `${progress}%` }} />
+              </div>
+              <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-300 ${isTimeCritical ? 'bg-red-600' : isTimeWarning ? 'bg-orange-600' : 'bg-[#1B3139]'}`}
+                  style={{ width: `${timePercentage}%` }}
+                />
+              </div>
             </div>
+            {isTimeExpired && (
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-tight rounded">
+                Tempo esgotado! O simulado será finalizado automaticamente.
+              </div>
+            )}
           </div>
 
           <QuestionView
@@ -612,12 +815,69 @@ const App: React.FC = () => {
           />
 
           <div className="flex items-center justify-between pt-8 border-t border-slate-200">
-            <Button variant="outline" onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))} disabled={currentQuestionIndex === 0}>
+            <Button variant="outline" onClick={handlePrevious} disabled={currentQuestionIndex === 0 || isTimeExpired}>
               Anterior
             </Button>
-            <Button onClick={handleNext} disabled={!answers[currentQuestion._id]} isLoading={isSubmitting}>
-              {currentQuestionIndex === questions.length - 1 ? 'Finalizar Simulado' : 'Próxima Questão'}
-            </Button>
+            <div className="flex items-center gap-2">
+              {currentQuestionIndex < questions.length - 1 && (
+                <Button variant="outline" onClick={handleNext} disabled={isTimeExpired}>
+                  Pular
+                </Button>
+              )}
+              <Button onClick={handleNext} disabled={isTimeExpired} isLoading={isSubmitting}>
+                {currentQuestionIndex === questions.length - 1 ? 'Finalizar Simulado' : 'Próxima Questão'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Question Pagination */}
+          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Navegação de Questões</span>
+              <span className="text-[10px] font-black text-slate-500">
+                {Object.keys(answers).length} / {questions.length} respondidas
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-2">
+              {questions.map((q, index) => {
+                const isAnswered = !!answers[q._id];
+                const isCurrent = index === currentQuestionIndex;
+                return (
+                  <button
+                    key={q._id}
+                    onClick={() => handleGoToQuestion(index)}
+                    disabled={isTimeExpired}
+                    className={`
+                      w-9 h-9 sm:w-10 sm:h-10 rounded text-xs font-black transition-all flex items-center justify-center
+                      ${isCurrent
+                        ? 'bg-[#FF3621] text-white border-2 border-[#FF3621] shadow-[0_0_0_3px_rgba(255,54,33,0.3)] relative z-10'
+                        : isAnswered
+                          ? 'bg-green-500 text-white hover:bg-green-600 border-2 border-green-600 hover:scale-105 shadow-md'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border-2 border-slate-300 hover:scale-105'
+                      }
+                      ${isTimeExpired ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                    title={`Questão ${index + 1}${isAnswered ? ' (Respondida)' : ' (Não respondida)'}`}
+                  >
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-green-500 border-2 border-green-600"></div>
+                <span>Respondida</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-slate-100 border-2 border-slate-300"></div>
+                <span>Não Respondida</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-[#FF3621] border-2 border-[#FF3621] shadow-[0_0_0_2px_rgba(255,54,33,0.3)]"></div>
+                <span>Atual</span>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -1599,11 +1859,28 @@ const App: React.FC = () => {
 
       {location.pathname === '/exam' && questions.length > 0 && (
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-3 px-6 md:hidden shadow-2xl z-50">
-          <div className="flex justify-between items-center max-w-lg mx-auto">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Q{currentQuestionIndex + 1} DE {questions.length}</span>
-            <Button size="sm" onClick={handleNext} disabled={!answers[questions[currentQuestionIndex]?._id]}>
-              Avançar
-            </Button>
+          <div className="flex justify-between items-center max-w-lg mx-auto gap-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Q{currentQuestionIndex + 1} DE {questions.length}</span>
+              <div className={`flex items-center gap-1 ${isTimeExpired || remainingTime < 5 * 60 * 1000 ? 'text-red-600' : remainingTime < 15 * 60 * 1000 ? 'text-orange-600' : 'text-slate-600'}`}>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span className={`text-[10px] font-black ${isTimeExpired ? 'animate-pulse' : ''}`}>
+                  {isTimeExpired ? '00:00' : formatTime(remainingTime)}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {currentQuestionIndex > 0 && (
+                <Button size="sm" variant="outline" onClick={handlePrevious} disabled={isTimeExpired}>
+                  ←
+                </Button>
+              )}
+              <Button size="sm" onClick={handleNext} disabled={isTimeExpired}>
+                {currentQuestionIndex === questions.length - 1 ? 'Finalizar' : 'Avançar'}
+              </Button>
+            </div>
           </div>
         </footer>
       )}

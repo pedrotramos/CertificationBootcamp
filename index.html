@@ -43,6 +43,28 @@
     .text-databricks-navy {
       color: #1B3139;
     }
+
+    /* Make <pre> tags wrap instead of overflow */
+    pre {
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+      max-width: 100% !important;
+      overflow-x: auto;
+    }
+
+    /* Also handle <pre> tags within question content */
+    h2 pre,
+    p pre,
+    div pre,
+    .question-content pre {
+      white-space: pre-wrap !important;
+      word-wrap: break-word !important;
+      overflow-wrap: break-word !important;
+      word-break: break-word !important;
+      max-width: 100% !important;
+    }
   </style>
   <script type="importmap">
 {

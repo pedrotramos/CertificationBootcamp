@@ -160,14 +160,7 @@ export const dbService = {
   },
 
   getUserResults: async (userId: string, exam: string): Promise<ExamResult[]> => {
-    const cacheKey = `getUserResults:${userId}:${exam}`;
-    const cached = getCachedData<ExamResult[]>(cacheKey);
-    if (cached !== null) {
-      return cached;
-    }
-
     const data = await apiRequest<ExamResult[]>(`/results/user/${encodeURIComponent(userId)}?exam=${encodeURIComponent(exam)}`);
-    setCachedData(cacheKey, data);
     return data;
   },
 

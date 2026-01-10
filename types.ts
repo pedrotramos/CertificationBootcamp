@@ -31,6 +31,7 @@ export interface ExamResult {
   timestamp: Date;
   score: number;
   totalQuestions: number;
+  exam: string;
   answers: {
     questionId: string;
     selectedOptionId: string;
