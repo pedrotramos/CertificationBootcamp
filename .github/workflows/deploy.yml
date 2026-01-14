@@ -34,7 +34,7 @@ jobs:
         run: npm run build
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_BASE_PATH: ${{ steps.base_path.outputs.base_path }}
+          # VITE_BASE_PATH: ${{ steps.base_path.outputs.base_path }}
 
       - name: Add SPA fallback (404 -> index.html)
         run: cp dist/index.html dist/404.html
