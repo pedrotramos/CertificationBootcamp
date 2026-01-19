@@ -23,6 +23,42 @@ const PROHIBITED_DOMAINS = [
   'ig.com.br'
 ];
 
+// Whitelisted emails that bypass domain validation
+const WHITELISTED_EMAILS = [
+  "alcioneroveri@gmail.com",
+  "alinebpamplona@gmail.com",
+  "amandinharodriguescruz@gmail.com",
+  "anagatcavalcante@gmail.com",
+  "ariany.ramos.ultra@gmail.com",
+  "brunabatistavelloso@gmail.com",
+  "carool1307@gmail.com",
+  "daiane.mpereira@gmail.com",
+  "drcdoimo@gmail.com",
+  "ericaestat@gmail.com",
+  "ems.erikamedeiros@gmail.com",
+  "estela.polverini@gmail.com",
+  "ethelbeluzzi@gmail.com",
+  "fdiasguima@gmail.com",
+  "gabibraga1014@gmail.com",
+  "wallgiu@gmail.com",
+  "greyce.cos.sil@gmail.com",
+  "huaragois@gmail.com",
+  "jaque.orizzo@gmail.com",
+  "jessica.jc.2010@gmail.com",
+  "juliafernand3s@gmail.com",
+  "leila.sousa@ambevtech.com.br",
+  "lucianawlr@gmail.com",
+  "maiyuri.martins.17@gmail.com",
+  "manuela.castilla@gmail.com",
+  "marcela.bsbcel@gmail.com",
+  "thaisal.estudo@gmail.com",
+  "raquelcldba@gmail.com",
+  "thaisleticiaamaral@gmail.com",
+  "thalitasisnandes1@gmail.com",
+  "vanessaorsigordo@gmail.com",
+  "leticiaflores.pinho@gmail.com"
+];
+
 // Helper functions to manage exam progress in localStorage
 const EXAM_PROGRESS_KEY = 'examProgress';
 const SELECTED_EXAM_KEY = 'selectedExam';
@@ -488,6 +524,11 @@ const App: React.FC = () => {
     const emailLower = email.toLowerCase().trim();
     if (!emailLower) return { isValid: false, message: 'O e-mail é obrigatório.' };
 
+    // Check if email is in the whitelist - if so, bypass all domain validation
+    if (WHITELISTED_EMAILS.includes(emailLower)) {
+      return { isValid: true, message: null };
+    }
+
     const domain = emailLower.split('@')[1];
     if (PROHIBITED_DOMAINS.includes(domain)) {
       return {
@@ -551,7 +592,16 @@ const App: React.FC = () => {
         return;
       }
 
-      const domainCheck = await dbService.checkDomain(formData.email);
+      const emailLower = formData.email.toLowerCase().trim();
+      const isEmailWhitelisted = WHITELISTED_EMAILS.includes(emailLower);
+
+      // Skip domain check for whitelisted emails
+      let domainCheck: { whitelisted: boolean; company?: string };
+      if (isEmailWhitelisted) {
+        domainCheck = { whitelisted: true };
+      } else {
+        domainCheck = await dbService.checkDomain(formData.email);
+      }
 
       // Store company from domain check (will be used when saving user)
       if (domainCheck.company) {
