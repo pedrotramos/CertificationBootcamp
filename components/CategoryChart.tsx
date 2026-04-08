@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { CHART_CORRECT_FILL, CHART_INCORRECT_FILL } from '../constants/chartColors';
 
 interface CategoryChartProps {
     category: string;
@@ -49,8 +50,8 @@ const CategoryChart: React.FC<CategoryChartProps> = ({ category, correct, total 
                                 return [value, name];
                             }}
                         />
-                        <Bar dataKey="correct" stackId="a" fill="#10b981" radius={[0, 4, 4, 0]} />
-                        <Bar dataKey="incorrect" stackId="a" fill="#FF3621" radius={[4, 0, 0, 4]} />
+                        <Bar dataKey="correct" stackId="a" fill={CHART_CORRECT_FILL} radius={[0, 4, 4, 0]} />
+                        <Bar dataKey="incorrect" stackId="a" fill={CHART_INCORRECT_FILL} radius={[4, 0, 0, 4]} />
                     </BarChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

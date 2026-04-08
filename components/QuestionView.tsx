@@ -47,15 +47,21 @@ const QuestionView: React.FC<QuestionViewProps> = ({
               }`}
           >
             <div className="flex items-start gap-3 w-full flex-wrap">
-              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${selectedOptionId === option.id ? 'border-[#FF3621] bg-[#FF3621]' : 'border-slate-300'}`}>
-                {selectedOptionId === option.id && <div className="w-2 h-2 bg-white rounded-full" />}
-              </div>
-              <p
+              <span
+                className={`w-8 h-8 rounded-md border-2 text-sm font-black flex items-center justify-center flex-shrink-0 transition-colors ${
+                  selectedOptionId === option.id
+                    ? 'border-[#FF3621] bg-[#FF3621] text-white'
+                    : 'border-slate-200 bg-slate-50 text-[#1B3139]'
+                }`}
+                aria-hidden
+              >
+                {option.id.toUpperCase()}
+              </span>
+              <div
                 className={`text-base font-bold break-words flex-1 min-w-0 [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:overflow-wrap-anywhere [&_pre]:max-w-full ${selectedOptionId === option.id ? 'text-[#FF3621]' : 'text-[#1B3139]'}`}
                 style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
-              >
-                {option.text}
-              </p>
+                dangerouslySetInnerHTML={{ __html: option.text || '' }}
+              />
               {option.imageUrl && (
                 <div className="bg-white p-1 rounded border border-slate-100 overflow-hidden flex-shrink-0 w-full sm:w-auto">
                   <img

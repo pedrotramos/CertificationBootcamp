@@ -1,6 +1,6 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { CHART_CORRECT_FILL, CHART_INCORRECT_FILL } from '../constants/chartColors';
 
 interface ResultsChartProps {
   score: number;
@@ -10,8 +10,8 @@ interface ResultsChartProps {
 const ResultsChart: React.FC<ResultsChartProps> = ({ score, total }) => {
   // Filter out zero values to ensure a perfect circle when score is 0 or 100%
   const data = [
-    { name: 'Acertos', value: score, color: '#FF3621' },
-    { name: 'Erros', value: total - score, color: '#1B3139' },
+    { name: 'Acertos', value: score, color: CHART_CORRECT_FILL },
+    { name: 'Erros', value: total - score, color: CHART_INCORRECT_FILL },
   ].filter(item => item.value > 0);
   
   return (

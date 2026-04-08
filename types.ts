@@ -10,7 +10,7 @@ export interface User {
 
 export interface Option {
   id: string;
-  text: string;
+  text?: string;
   imageUrl?: string;
 }
 

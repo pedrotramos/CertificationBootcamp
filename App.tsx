@@ -1101,18 +1101,20 @@ const App: React.FC = () => {
                           id={`explanation-toggle-${question._id}`}
                           className="cursor-pointer text-[#FF3621] hover:text-[#E6311D] font-black text-[10px] uppercase tracking-widest flex items-center gap-2 select-none transition-all focus:outline-none"
                         >
-                          Ver Explicação
+                          <span className="group-open:hidden">Ver Explicação</span>
+                          <span className="hidden group-open:inline">Ocultar Explicação</span>
                           <svg
-                            className="w-4 h-4 transform group-open:translate-x-1 transition-transform"
+                            className="w-4 h-4 shrink-0 transform text-current transition-transform duration-200 group-open:-rotate-180"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
+                            aria-hidden
                           >
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth="2"
-                              d="M17 8l4 4m0 0l-4 4m4-4H3"
+                              d="M19 9l-7 7-7-7"
                             />
                           </svg>
                         </summary>

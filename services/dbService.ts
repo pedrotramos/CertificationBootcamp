@@ -84,21 +84,69 @@ function setCachedData<T>(key: string, data: T): void {
   }
 }
 
+/** Extrai `data` de `{ "data": T }` ou devolve o corpo em bruto (legado). */
+function unwrapApiBody<T>(body: unknown): T {
+  if (body !== null && typeof body === 'object' && 'data' in body) {
+    return (body as { data: T }).data;
+  }
+  return body as T;
+}
+
+function errorMessageFromBody(body: unknown, fallback: string): string {
+  if (body !== null && typeof body === 'object' && 'error' in body) {
+    const err = (body as { error: unknown }).error;
+    if (typeof err === 'object' && err !== null && 'message' in err) {
+      return String((err as { message: string }).message);
+    }
+    if (typeof err === 'string') return err;
+  }
+  return fallback;
+}
+
+/**
+ * Normaliza lista de categorias (API devolve `string[]` em `data`).
+ * Fallback: documentos de pergunta com campo `category`.
+ */
+function asDistinctCategoryList(data: unknown): string[] {
+  const raw = Array.isArray(data) ? data : [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (rawStr: string) => {
+    const s = rawStr.trim();
+    if (!s) return;
+    const k = s.toLowerCase();
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(s);
+  };
+  for (const item of raw) {
+    if (typeof item === 'string') {
+      push(item);
+    } else if (item !== null && typeof item === 'object' && 'category' in item) {
+      const c = (item as { category: unknown }).category;
+      if (typeof c === 'string') push(c);
+    }
+  }
+  return out;
+}
+
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...options?.headers,
     },
     ...options,
   });
 
+  const body: unknown = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    throw new Error(errorMessageFromBody(body, `Request failed (${response.status})`));
   }
 
-  return response.json();
+  return unwrapApiBody<T>(body);
 }
 
 export const dbService = {
@@ -109,9 +157,16 @@ export const dbService = {
       return cached;
     }
 
-    const data = await apiRequest<string[]>('/questions/exams');
+    const data = await apiRequest<string[]>('/exams');
     setCachedData(cacheKey, data);
     return data;
+  },
+
+  /** GET /categories?exam= — categorias distintas (campo `category`). */
+  getQuestionCategoriesForExam: async (exam: string): Promise<string[]> => {
+    const q = encodeURIComponent(exam.trim());
+    const data = await apiRequest<unknown>(`/categories?exam=${q}`);
+    return asDistinctCategoryList(data);
   },
 
   getQuestions: async (exam?: string): Promise<Question[]> => {
@@ -164,6 +219,13 @@ export const dbService = {
     return data;
   },
 
+  deleteUserResults: async (userId: string, exam?: string): Promise<{ deletedCount: number }> => {
+    const query = exam ? `?exam=${encodeURIComponent(exam)}` : '';
+    return apiRequest<{ deletedCount: number }>(`/results/user/${encodeURIComponent(userId)}${query}`, {
+      method: 'DELETE',
+    });
+  },
+
   checkDomain: async (email: string): Promise<{ whitelisted: boolean; company?: string }> => {
     const domain = email.split('@')[1];
     return apiRequest<{ whitelisted: boolean; company?: string }>(`/domain/${encodeURIComponent(domain)}`);
@@ -188,5 +250,14 @@ export const dbService = {
       method: 'POST',
       body: JSON.stringify({ domain, requesterEmail, company }),
     });
+  },
+
+  addQuestion: async (question: Omit<Question, '_id'>): Promise<Question> => {
+    const created = await apiRequest<Question>('/questions', {
+      method: 'POST',
+      body: JSON.stringify(question),
+    });
+    cache.delete('getExams');
+    return created;
   }
 };
