@@ -4,6 +4,7 @@ import type { Question } from '../types';
 import Button from './Button';
 import Card from './Card';
 import QuestionView from './QuestionView';
+import AdminQuestionExplorer from './AdminQuestionExplorer';
 
 /** IDs enviados à base: letras minúsculas (a–z); na UI exibimos maiúsculas. */
 function optionIdForIndex(index: number): string {
@@ -65,9 +66,10 @@ const Admin: React.FC = () => {
     const [resultsEmail, setResultsEmail] = useState('');
     const [resultsExam, setResultsExam] = useState('');
     const [isDeletingResults, setIsDeletingResults] = useState(false);
+    const [resultsDeleteConfirmOpen, setResultsDeleteConfirmOpen] = useState(false);
 
     // Admin tabs state
-    const [activeTab, setActiveTab] = useState<'whitelist' | 'questions' | 'results'>('whitelist');
+    const [activeTab, setActiveTab] = useState<'whitelist' | 'questions' | 'explore' | 'results'>('whitelist');
 
     const inputClasses =
         'w-full min-w-0 max-w-full px-4 py-3 rounded bg-[#1B3139] text-white border border-slate-700 focus:border-[#FF3621] focus:ring-1 focus:ring-[#FF3621] outline-none transition-all placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm';
@@ -76,7 +78,7 @@ const Admin: React.FC = () => {
         'min-w-0 max-w-full rounded bg-[#1B3139] text-white border border-slate-700 text-xs placeholder:text-[10px] px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap';
 
     useEffect(() => {
-        if (!otpValidated || (activeTab !== 'questions' && activeTab !== 'results')) {
+        if (!otpValidated || (activeTab !== 'questions' && activeTab !== 'results' && activeTab !== 'explore')) {
             return;
         }
         let cancelled = false;
@@ -452,7 +454,7 @@ const Admin: React.FC = () => {
         }
     };
 
-    const handleDeleteResults = async (e: React.FormEvent) => {
+    const handleResultsRequestDelete = (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMsg(null);
         setSuccessMsg(null);
@@ -467,11 +469,20 @@ const Admin: React.FC = () => {
             return;
         }
 
+        setResultsDeleteConfirmOpen(true);
+    };
+
+    const executeDeleteResults = async () => {
+        if (!otpValidated) return;
+
+        setErrorMsg(null);
+        setSuccessMsg(null);
         setIsDeletingResults(true);
         try {
             const user = await dbService.getUserByEmail(resultsEmail.trim());
             if (!user || !user._id) {
                 setErrorMsg('Usuário não encontrado para o e-mail informado.');
+                setResultsDeleteConfirmOpen(false);
                 return;
             }
 
@@ -485,16 +496,28 @@ const Admin: React.FC = () => {
                 );
                 setResultsEmail('');
                 setResultsExam('');
+                setResultsDeleteConfirmOpen(false);
             } else {
                 setErrorMsg('Nenhum registro de resultado encontrado para os critérios informados.');
+                setResultsDeleteConfirmOpen(false);
             }
         } catch (err: any) {
             setErrorMsg(err.message || 'Erro ao remover resultados. Tente novamente.');
             console.error(err);
+            setResultsDeleteConfirmOpen(false);
         } finally {
             setIsDeletingResults(false);
         }
     };
+
+    useEffect(() => {
+        if (!resultsDeleteConfirmOpen) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setResultsDeleteConfirmOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [resultsDeleteConfirmOpen]);
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -643,6 +666,16 @@ const Admin: React.FC = () => {
                                                 }`}
                                         >
                                             Perguntas
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveTab('explore')}
+                                            className={`px-3 py-2 text-[10px] font-black uppercase tracking-[0.2em] border-b-2 transition-colors ${activeTab === 'explore'
+                                                ? 'border-[#FF3621] text-[#FF3621]'
+                                                : 'border-transparent text-slate-500 hover:text-slate-800'
+                                                }`}
+                                        >
+                                            Explorar
                                         </button>
                                         <button
                                             type="button"
@@ -1097,8 +1130,26 @@ const Admin: React.FC = () => {
                                         </form>
                                     )}
 
+                                    {activeTab === 'explore' && (
+                                        <AdminQuestionExplorer
+                                            otpValidated={otpValidated}
+                                            examOptions={adminExamOptions}
+                                            loadingExams={loadingAdminExams}
+                                            inputClasses={inputClasses}
+                                            optionCellInputClasses={optionCellInputClasses}
+                                            onMutate={async () => {
+                                                try {
+                                                    const exams = await dbService.getExams();
+                                                    setAdminExamOptions(exams);
+                                                } catch {
+                                                    /* ignore */
+                                                }
+                                            }}
+                                        />
+                                    )}
+
                                     {activeTab === 'results' && (
-                                        <form onSubmit={handleDeleteResults} className="space-y-4">
+                                        <form onSubmit={handleResultsRequestDelete} className="space-y-4">
                                             <div className="space-y-1">
                                                 <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.25em]">
                                                     Remover Resultados de Usuários
@@ -1121,7 +1172,7 @@ const Admin: React.FC = () => {
                                                         placeholder="usuario@empresa.com"
                                                         value={resultsEmail}
                                                         onChange={(e) => setResultsEmail(e.target.value)}
-                                                        disabled={isDeletingResults}
+                                                        disabled={isDeletingResults || resultsDeleteConfirmOpen}
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -1136,7 +1187,7 @@ const Admin: React.FC = () => {
                                                         className={inputClasses}
                                                         value={resultsExam}
                                                         onChange={(e) => setResultsExam(e.target.value)}
-                                                        disabled={isDeletingResults || loadingAdminExams}
+                                                        disabled={isDeletingResults || loadingAdminExams || resultsDeleteConfirmOpen}
                                                     >
                                                         <option value="">
                                                             Todos os exames do usuário
@@ -1160,7 +1211,7 @@ const Admin: React.FC = () => {
                                             <Button
                                                 type="submit"
                                                 className="w-full py-4 mt-4 bg-red-600 hover:bg-red-700"
-                                                isLoading={isDeletingResults}
+                                                disabled={isDeletingResults || resultsDeleteConfirmOpen}
                                             >
                                                 Remover Resultados
                                             </Button>
@@ -1172,6 +1223,62 @@ const Admin: React.FC = () => {
                     </Card>
                 </div>
             </main>
+
+            {resultsDeleteConfirmOpen && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
+                    role="alertdialog"
+                    aria-modal="true"
+                    aria-labelledby="admin-delete-results-title"
+                >
+                    <button
+                        type="button"
+                        className="absolute inset-0 cursor-default"
+                        aria-label="Fechar"
+                        onClick={() => !isDeletingResults && setResultsDeleteConfirmOpen(false)}
+                    />
+                    <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-md w-full space-y-4">
+                        <h3
+                            id="admin-delete-results-title"
+                            className="text-sm font-black text-[#1B3139] uppercase tracking-tight"
+                        >
+                            Confirmar remoção
+                        </h3>
+                        <p className="text-sm text-slate-600 leading-relaxed">
+                            Os resultados de prova do usuário{' '}
+                            <span className="font-bold text-[#1B3139]">{resultsEmail.trim()}</span>
+                            {resultsExam.trim() ? (
+                                <>
+                                    {' '}
+                                    no exame <span className="font-bold text-[#1B3139]">&quot;{resultsExam.trim()}&quot;</span>
+                                </>
+                            ) : (
+                                <> em todos os exames</>
+                            )}{' '}
+                            serão apagados. Clique em <span className="font-bold">Confirmar</span> para prosseguir.
+                        </p>
+                        <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setResultsDeleteConfirmOpen(false)}
+                                disabled={isDeletingResults}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="button"
+                                className="bg-red-600 hover:bg-red-700"
+                                onClick={executeDeleteResults}
+                                disabled={isDeletingResults}
+                                isLoading={isDeletingResults}
+                            >
+                                Confirmar
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

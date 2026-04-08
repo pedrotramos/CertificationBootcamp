@@ -25,6 +25,16 @@ export interface Question {
   exam: string;
 }
 
+/** Resposta de GET /api/questions/browse (admin). */
+export interface BrowseQuestionsResponse {
+  questions: Question[];
+  total: number;
+  page: number;
+  pageSize: number;
+  semanticRanked: boolean;
+  searchMatchMode?: 'strict' | 'relaxed';
+}
+
 export interface ExamResult {
   _id?: ObjectId;
   userId: string;

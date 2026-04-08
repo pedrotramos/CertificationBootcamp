@@ -1,5 +1,5 @@
 
-import { User, Question, ExamResult } from '../types';
+import { User, Question, ExamResult, BrowseQuestionsResponse } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
@@ -150,14 +150,25 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 }
 
 export const dbService = {
-  getExams: async (): Promise<string[]> => {
-    const cacheKey = 'getExams';
+  /**
+   * Lista nomes de prova distintos.
+   * Com `minQuestions`, a API retorna só provas com pelo menos essa quantidade de questões na base (ex.: home do simulado).
+   */
+  getExams: async (options?: { minQuestions?: number }): Promise<string[]> => {
+    const cacheKey =
+      options?.minQuestions != null && options.minQuestions > 0
+        ? `getExams:minQuestions=${options.minQuestions}`
+        : 'getExams';
     const cached = getCachedData<string[]>(cacheKey);
     if (cached !== null) {
       return cached;
     }
 
-    const data = await apiRequest<string[]>('/exams');
+    const qs =
+      options?.minQuestions != null && options.minQuestions > 0
+        ? `?minQuestions=${encodeURIComponent(String(options.minQuestions))}`
+        : '';
+    const data = await apiRequest<string[]>(`/exams${qs}`);
     setCachedData(cacheKey, data);
     return data;
   },
@@ -173,6 +184,51 @@ export const dbService = {
     const endpoint = exam ? `/questions?exam=${encodeURIComponent(exam)}` : '/questions';
     const data = await apiRequest<Question[]>(endpoint);
     return data;
+  },
+
+  /** Todas as perguntas de uma prova (ordem: categoria, id) — uso administrativo. */
+  listAllQuestionsForExam: async (exam: string): Promise<Question[]> => {
+    const q = encodeURIComponent(exam.trim());
+    return apiRequest<Question[]>(`/questions?exam=${q}&listAll=1`);
+  },
+
+  /** Lista paginada por prova; `search` ativa ordenação por relevância (busca semântica leve no servidor). */
+  browseQuestions: async (params: {
+    exam: string;
+    page?: number;
+    pageSize?: number;
+    search?: string;
+    category?: string;
+  }): Promise<BrowseQuestionsResponse> => {
+    const e = encodeURIComponent(params.exam.trim());
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 25;
+    let qs = `?exam=${e}&page=${encodeURIComponent(String(page))}&pageSize=${encodeURIComponent(String(pageSize))}`;
+    const s = (params.search ?? '').trim();
+    if (s.length >= 2) {
+      qs += `&search=${encodeURIComponent(s)}`;
+    }
+    const cat = (params.category ?? '').trim();
+    if (cat) {
+      qs += `&category=${encodeURIComponent(cat)}`;
+    }
+    return apiRequest<BrowseQuestionsResponse>(`/questions/browse${qs}`);
+  },
+
+  updateQuestion: async (id: string, question: Omit<Question, '_id'>): Promise<Question> => {
+    const updated = await apiRequest<Question>(`/questions/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      body: JSON.stringify(question),
+    });
+    cache.delete('getExams');
+    return updated;
+  },
+
+  deleteQuestion: async (id: string): Promise<void> => {
+    await apiRequest<unknown>(`/questions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    cache.delete('getExams');
   },
 
   getAnsweredQuestions: async (userId: string, exam: string): Promise<Question[]> => {
@@ -259,5 +315,5 @@ export const dbService = {
     });
     cache.delete('getExams');
     return created;
-  }
+  },
 };

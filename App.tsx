@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AppState, User, Question, ExamResult, Answers } from './types';
 import { dbService } from './services/dbService';
+import { SIMULADO_QUESTION_COUNT } from './constants/simulado';
 // import { geminiService } from './services/geminiService';
 import Button from './components/Button';
 import Card from './components/Card';
@@ -180,6 +181,7 @@ const App: React.FC = () => {
   const [otpValidated, setOtpValidated] = useState(false);
   const [isValidatingOtp, setIsValidatingOtp] = useState(false);
   const [availableExams, setAvailableExams] = useState<string[]>([]);
+  const [loadingHomeExams, setLoadingHomeExams] = useState(true);
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
@@ -193,11 +195,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const loadExams = async () => {
+      setLoadingHomeExams(true);
       try {
-        const exams = await dbService.getExams();
+        const exams = await dbService.getExams({ minQuestions: SIMULADO_QUESTION_COUNT });
         setAvailableExams(exams);
       } catch (err) {
         console.error('Error loading exams:', err);
+        setAvailableExams([]);
+      } finally {
+        setLoadingHomeExams(false);
       }
     };
     loadExams();
@@ -209,6 +215,19 @@ const App: React.FC = () => {
     // Check for existing session when app loads
     checkExistingSession();
   }, []);
+
+  useEffect(() => {
+    if (loadingHomeExams) return;
+    if (!selectedExam) return;
+    if (availableExams.length === 0 || !availableExams.includes(selectedExam)) {
+      setSelectedExam('');
+      try {
+        localStorage.removeItem(SELECTED_EXAM_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [loadingHomeExams, availableExams, selectedExam]);
 
   // Check for existing session when navigating to home page (only if no user is set)
   useEffect(() => {
@@ -1388,11 +1407,18 @@ const App: React.FC = () => {
                       <label className="text-[10px] font-black uppercase text-slate-400">Prova</label>
                       <select
                         required
+                        disabled={loadingHomeExams || availableExams.length === 0}
                         className={`${inputClasses} cursor-pointer`}
                         value={selectedExam}
                         onChange={(e) => setSelectedExam(e.target.value)}
                       >
-                        <option value="" className="bg-[#1B3139] text-white">Selecione uma prova</option>
+                        <option value="" className="bg-[#1B3139] text-white">
+                          {loadingHomeExams
+                            ? 'Carregando provas…'
+                            : availableExams.length === 0
+                              ? `Nenhuma prova com ${SIMULADO_QUESTION_COUNT}+ questões`
+                              : 'Selecione uma prova'}
+                        </option>
                         {availableExams.map((exam) => (
                           <option key={exam} value={exam} className="bg-[#1B3139] text-white">
                             {exam}
@@ -1400,7 +1426,11 @@ const App: React.FC = () => {
                         ))}
                       </select>
                       <p className="text-[9px] text-slate-500 mt-1">
-                        Selecione a prova que deseja realizar.
+                        {loadingHomeExams
+                          ? 'Buscando provas disponíveis…'
+                          : availableExams.length === 0
+                            ? `Não há provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões cadastradas.`
+                            : `Só listamos provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões (tamanho do simulado).`}
                       </p>
                     </div>
                     <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
@@ -1443,12 +1473,18 @@ const App: React.FC = () => {
                       <label className="text-[10px] font-black uppercase text-slate-400">Prova</label>
                       <select
                         required
-                        disabled={otpSent}
+                        disabled={otpSent || loadingHomeExams || availableExams.length === 0}
                         className={`${inputClasses} cursor-pointer`}
                         value={selectedExam}
                         onChange={(e) => setSelectedExam(e.target.value)}
                       >
-                        <option value="" className="bg-[#1B3139] text-white">Selecione uma prova</option>
+                        <option value="" className="bg-[#1B3139] text-white">
+                          {loadingHomeExams
+                            ? 'Carregando provas…'
+                            : availableExams.length === 0
+                              ? `Nenhuma prova com ${SIMULADO_QUESTION_COUNT}+ questões`
+                              : 'Selecione uma prova'}
+                        </option>
                         {availableExams.map((exam) => (
                           <option key={exam} value={exam} className="bg-[#1B3139] text-white">
                             {exam}
@@ -1456,7 +1492,11 @@ const App: React.FC = () => {
                         ))}
                       </select>
                       <p className="text-[9px] text-slate-500 mt-1">
-                        Selecione a prova que deseja realizar.
+                        {loadingHomeExams
+                          ? 'Buscando provas disponíveis…'
+                          : availableExams.length === 0
+                            ? `Não há provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões cadastradas.`
+                            : `Só listamos provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões (tamanho do simulado).`}
                       </p>
                     </div>
 
