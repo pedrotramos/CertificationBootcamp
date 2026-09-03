@@ -292,6 +292,9 @@ const App: React.FC = () => {
         // Initialize new timer
         timer = initializeExamTimer(userId, examId);
         saveExamTimer(timer);
+        void dbService.startExamSession(userId, examId).catch(error =>
+          console.error('Failed to track exam session start:', error)
+        );
       } else if (timer.isPaused) {
         // Resume timer - set new start time
         const now = Date.now();
@@ -804,6 +807,9 @@ const App: React.FC = () => {
     };
 
     const savedResult = await dbService.saveResult(result);
+    await dbService.completeExamSession(user._id?.toString() || '', examToUse).catch(error =>
+      console.error('Failed to track exam session completion:', error)
+    );
     setFinalResult(savedResult);
     setHasResults(true);
     clearExamProgress(); // Clear progress after exam is completed

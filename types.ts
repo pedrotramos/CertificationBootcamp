@@ -50,6 +50,27 @@ export interface ExamResult {
   }[];
 }
 
+export interface AdminResultAttempt {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  company: string;
+  exam: string;
+  timestamp: string;
+  score: number;
+  totalQuestions: number;
+  percentage: number;
+  passed: boolean;
+  categoryScores: { category: string; correct: number; total: number; percentage: number }[];
+}
+
+export interface AdminResultsDashboardData {
+  attempts: AdminResultAttempt[];
+  sessions: { id: string; userId: string; exam: string; startedAt: string; completedAt?: string; status: 'in_progress' | 'completed' }[];
+  updatedAt: string;
+}
+
 export type AppState = 'welcome' | 'register' | 'exam' | 'results' | 'contact' | 'faq';
 
 /**

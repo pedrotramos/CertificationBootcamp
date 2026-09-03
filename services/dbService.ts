@@ -1,5 +1,5 @@
 
-import { User, Question, ExamResult, BrowseQuestionsResponse } from '../types';
+import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
@@ -150,6 +150,18 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 }
 
 export const dbService = {
+  getAdminResultsDashboard: async (email: string, otp: string): Promise<AdminResultsDashboardData> =>
+    apiRequest<AdminResultsDashboardData>('/admin/results-dashboard', {
+      headers: { 'X-Admin-Email': email, 'X-Admin-Otp': otp },
+    }),
+
+  startExamSession: async (userId: string, exam: string): Promise<{ id: string }> =>
+    apiRequest<{ id: string }>('/exam-sessions/start', { method: 'POST', body: JSON.stringify({ userId, exam }) }),
+
+  completeExamSession: async (userId: string, exam: string): Promise<void> => {
+    await apiRequest('/exam-sessions/complete', { method: 'POST', body: JSON.stringify({ userId, exam }) });
+  },
+
   /**
    * Lista nomes de prova distintos.
    * Com `minQuestions`, a API retorna só provas com pelo menos essa quantidade de questões na base (ex.: home do simulado).

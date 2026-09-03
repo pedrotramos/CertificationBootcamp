@@ -5,6 +5,7 @@ import Button from './Button';
 import Card from './Card';
 import QuestionView from './QuestionView';
 import AdminQuestionExplorer from './AdminQuestionExplorer';
+import AdminResultsDashboard from './AdminResultsDashboard';
 
 /** IDs enviados à base: letras minúsculas (a–z); na UI exibimos maiúsculas. */
 function optionIdForIndex(index: number): string {
@@ -70,6 +71,7 @@ const Admin: React.FC = () => {
 
     // Admin tabs state
     const [activeTab, setActiveTab] = useState<'whitelist' | 'questions' | 'explore' | 'results'>('whitelist');
+    const [resultsView, setResultsView] = useState<'dashboard' | 'maintenance'>('dashboard');
 
     const inputClasses =
         'w-full min-w-0 max-w-full px-4 py-3 rounded bg-[#1B3139] text-white border border-slate-700 focus:border-[#FF3621] focus:ring-1 focus:ring-[#FF3621] outline-none transition-all placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm';
@@ -542,7 +544,7 @@ const Admin: React.FC = () => {
             </nav>
 
             <main className="container mx-auto">
-                <div className="max-w-2xl mx-auto py-12 px-4">
+                <div className={`${otpValidated && activeTab === 'results' ? 'max-w-7xl' : 'max-w-2xl'} mx-auto py-12 px-4 transition-[max-width]`}>
                     <Card className="p-8 md:p-10 shadow-2xl border-t-4 border-t-[#1B3139] bg-white">
                         <div className="space-y-4 mb-6">
 
@@ -1149,7 +1151,12 @@ const Admin: React.FC = () => {
                                     )}
 
                                     {activeTab === 'results' && (
-                                        <form onSubmit={handleResultsRequestDelete} className="space-y-4">
+                                        <div className="space-y-5">
+                                            <div className="flex gap-2 border-b border-slate-200">
+                                                <button type="button" onClick={() => setResultsView('dashboard')} className={`px-3 py-2 text-[10px] font-black uppercase ${resultsView === 'dashboard' ? 'border-b-2 border-[#FF3621] text-[#FF3621]' : 'text-slate-500'}`}>Dashboard</button>
+                                                <button type="button" onClick={() => setResultsView('maintenance')} className={`px-3 py-2 text-[10px] font-black uppercase ${resultsView === 'maintenance' ? 'border-b-2 border-[#FF3621] text-[#FF3621]' : 'text-slate-500'}`}>Manutenção</button>
+                                            </div>
+                                            {resultsView === 'dashboard' ? <AdminResultsDashboard email={email.trim()} otp={otp} /> : <form onSubmit={handleResultsRequestDelete} className="space-y-4">
                                             <div className="space-y-1">
                                                 <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.25em]">
                                                     Remover Resultados de Usuários
@@ -1215,7 +1222,8 @@ const Admin: React.FC = () => {
                                             >
                                                 Remover Resultados
                                             </Button>
-                                        </form>
+                                            </form>}
+                                        </div>
                                     )}
                                 </div>
                             </div>
