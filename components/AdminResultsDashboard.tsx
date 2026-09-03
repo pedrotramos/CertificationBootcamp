@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart,
   ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -22,6 +22,26 @@ const labelMonth = (value: string) => {
   const [year, month] = value.split('-').map(Number);
   return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(new Date(year, month - 1, 1));
 };
+
+function useClampedTooltip(width = 240, height = 96) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ x: number; y: number }>();
+  const move = (state: unknown) => {
+    if (!state || typeof state !== 'object') return;
+    const { chartX, chartY } = state as { chartX?: unknown; chartY?: unknown };
+    if (typeof chartX !== 'number' || typeof chartY !== 'number') return;
+    const bounds = containerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    const gap = 14;
+    const preferredX = chartX + gap + width <= bounds.width ? chartX + gap : chartX - width - gap;
+    const preferredY = chartY + gap + height <= bounds.height ? chartY + gap : chartY - height - gap;
+    setPosition({
+      x: Math.max(4, Math.min(preferredX, bounds.width - width - 4)),
+      y: Math.max(4, Math.min(preferredY, bounds.height - height - 4)),
+    });
+  };
+  return { containerRef, position, move, leave: () => setPosition(undefined), width };
+}
 
 const Panel: React.FC<{ title: string; subtitle?: string; children: React.ReactNode; className?: string }> = ({ title, subtitle, children, className = '' }) => (
   <section className={`relative rounded-lg border border-slate-200 bg-white p-4 shadow-sm ${className}`}>
@@ -56,6 +76,11 @@ const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = ({ email
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'date' | 'score'>('date');
   const [tableSearch, setTableSearch] = useState('');
+  const passTooltip = useClampedTooltip();
+  const distributionTooltip = useClampedTooltip();
+  const trendTooltip = useClampedTooltip();
+  const categoryTooltip = useClampedTooltip();
+  const companyTooltip = useClampedTooltip();
 
   const load = async () => {
     setLoading(true); setError('');
@@ -183,14 +208,14 @@ const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = ({ email
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Panel title="Aprovados vs. reprovados" subtitle="Clique em uma fatia para cruzar o filtro de status"><div className="h-72"><ResponsiveContainer><PieChart><Pie data={[{ name: 'Aprovados', value: metrics.passed, key: 'passed' }, { name: 'Reprovados', value: metrics.failed, key: 'failed' }]} dataKey="value" innerRadius={60} outerRadius={100} onClick={d => setStatus(d.key)}>{[PASS, FAIL].map(c => <Cell key={c} fill={c} />)}</Pie><Tooltip allowEscapeViewBox={{x:true,y:true}} wrapperStyle={{zIndex:20}} /><Legend /></PieChart></ResponsiveContainer></div></Panel>
-        <Panel title="Distribuição das notas" subtitle="Frequência por faixa de 10 pontos percentuais"><div className="h-72"><ResponsiveContainer><BarChart data={distribution}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="range" tick={{fontSize:9}}/><YAxis allowDecimals={false}/><Tooltip allowEscapeViewBox={{x:true,y:true}} wrapperStyle={{zIndex:20}}/><Bar dataKey="count" name="Tentativas">{distribution.map(d => <Cell key={d.range} fill={d.passed ? PASS : FAIL}/>)}</Bar></BarChart></ResponsiveContainer></div></Panel>
-        <Panel title="Nota média ao longo do tempo" subtitle="Média mensal; o eixo inicia em zero"><div className="h-72"><ResponsiveContainer><LineChart data={trend}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label" tick={{fontSize:10}}/><YAxis domain={[0,1]} tickFormatter={pct}/><Tooltip allowEscapeViewBox={{x:true,y:true}} wrapperStyle={{zIndex:20}} formatter={(v: number) => pct(v)}/><Line type="monotone" dataKey="score" name="Nota média" stroke={NAVY} strokeWidth={3}/></LineChart></ResponsiveContainer></div></Panel>
-        <Panel title="Desempenho por categoria" subtitle="Categorias mais frágeis aparecem primeiro"><div className="h-72"><ResponsiveContainer><BarChart data={categories} layout="vertical" margin={{left: 70, right: 24}}><CartesianGrid strokeDasharray="3 3" horizontal={false}/><XAxis type="number" domain={[0,1]} tickFormatter={pct}/><YAxis type="category" dataKey="category" width={160} tick={{fontSize:9}}/><Tooltip position={{x: 8, y: 8}} wrapperStyle={{zIndex:20, maxWidth: '240px'}} contentStyle={{maxWidth: '240px', whiteSpace: 'normal', overflowWrap: 'anywhere'}} formatter={(v: number) => pct(v)}/><Bar dataKey="score" name="Nota média" fill={NAVY}/></BarChart></ResponsiveContainer></div></Panel>
+        <Panel title="Aprovados vs. reprovados" subtitle="Clique em uma fatia para cruzar o filtro de status"><div ref={passTooltip.containerRef} className="h-72"><ResponsiveContainer><PieChart onMouseMove={passTooltip.move} onMouseLeave={passTooltip.leave}><Pie data={[{ name: 'Aprovados', value: metrics.passed, key: 'passed' }, { name: 'Reprovados', value: metrics.failed, key: 'failed' }]} dataKey="value" innerRadius={60} outerRadius={100} onClick={d => setStatus(d.key)}>{[PASS, FAIL].map(c => <Cell key={c} fill={c} />)}</Pie><Tooltip position={passTooltip.position} wrapperStyle={{zIndex:20, maxWidth: passTooltip.width}} contentStyle={{maxWidth: passTooltip.width, whiteSpace:'normal', overflowWrap:'anywhere'}} /><Legend /></PieChart></ResponsiveContainer></div></Panel>
+        <Panel title="Distribuição das notas" subtitle="Frequência por faixa de 10 pontos percentuais"><div ref={distributionTooltip.containerRef} className="h-72"><ResponsiveContainer><BarChart data={distribution} onMouseMove={distributionTooltip.move} onMouseLeave={distributionTooltip.leave}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="range" tick={{fontSize:9}}/><YAxis allowDecimals={false}/><Tooltip position={distributionTooltip.position} wrapperStyle={{zIndex:20, maxWidth:distributionTooltip.width}} contentStyle={{maxWidth:distributionTooltip.width, whiteSpace:'normal', overflowWrap:'anywhere'}}/><Bar dataKey="count" name="Tentativas">{distribution.map(d => <Cell key={d.range} fill={d.passed ? PASS : FAIL}/>)}</Bar></BarChart></ResponsiveContainer></div></Panel>
+        <Panel title="Nota média ao longo do tempo" subtitle="Média mensal; o eixo inicia em zero"><div ref={trendTooltip.containerRef} className="h-72"><ResponsiveContainer><LineChart data={trend} onMouseMove={trendTooltip.move} onMouseLeave={trendTooltip.leave}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label" tick={{fontSize:10}}/><YAxis domain={[0,1]} tickFormatter={pct}/><Tooltip position={trendTooltip.position} wrapperStyle={{zIndex:20, maxWidth:trendTooltip.width}} contentStyle={{maxWidth:trendTooltip.width, whiteSpace:'normal', overflowWrap:'anywhere'}} formatter={(v: number) => pct(v)}/><Line type="monotone" dataKey="score" name="Nota média" stroke={NAVY} strokeWidth={3}/></LineChart></ResponsiveContainer></div></Panel>
+        <Panel title="Desempenho por categoria" subtitle="Categorias mais frágeis aparecem primeiro"><div ref={categoryTooltip.containerRef} className="h-72"><ResponsiveContainer><BarChart data={categories} layout="vertical" margin={{left: 70, right: 24}} onMouseMove={categoryTooltip.move} onMouseLeave={categoryTooltip.leave}><CartesianGrid strokeDasharray="3 3" horizontal={false}/><XAxis type="number" domain={[0,1]} tickFormatter={pct}/><YAxis type="category" dataKey="category" width={160} tick={{fontSize:9}}/><Tooltip position={categoryTooltip.position} wrapperStyle={{zIndex:20, maxWidth:categoryTooltip.width}} contentStyle={{maxWidth:categoryTooltip.width, whiteSpace:'normal', overflowWrap:'anywhere'}} formatter={(v: number) => pct(v)}/><Bar dataKey="score" name="Nota média" fill={NAVY}/></BarChart></ResponsiveContainer></div></Panel>
       </div>
 
       <Panel title="Prontidão por empresa" subtitle="Top 12 empresas por volume; clique na barra para filtrar">
-        <div className="h-72"><ResponsiveContainer><BarChart data={companyBreakdown} onClick={state => { const value = state?.activeLabel; if (typeof value === 'string') setCompany(value); }}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="name" tick={{fontSize:9}}/><YAxis allowDecimals={false}/><Tooltip/><Legend/><Bar dataKey="passed" stackId="a" name="Aprovados" fill={PASS}/><Bar dataKey="failed" stackId="a" name="Reprovados" fill={FAIL}/></BarChart></ResponsiveContainer></div>
+        <div ref={companyTooltip.containerRef} className="h-72"><ResponsiveContainer><BarChart data={companyBreakdown} onMouseMove={companyTooltip.move} onMouseLeave={companyTooltip.leave} onClick={state => { const value = state?.activeLabel; if (typeof value === 'string') setCompany(value); }}><CartesianGrid strokeDasharray="3 3" vertical={false}/><XAxis dataKey="name" tick={{fontSize:9}}/><YAxis allowDecimals={false}/><Tooltip position={companyTooltip.position} wrapperStyle={{zIndex:20, maxWidth:companyTooltip.width}} contentStyle={{maxWidth:companyTooltip.width, whiteSpace:'normal', overflowWrap:'anywhere'}}/><Legend/><Bar dataKey="passed" stackId="a" name="Aprovados" fill={PASS}/><Bar dataKey="failed" stackId="a" name="Reprovados" fill={FAIL}/></BarChart></ResponsiveContainer></div>
       </Panel>
 
       <Panel title="Abandono de simulados" subtitle="Sessões sem conclusão após 2 horas são consideradas abandonadas">
