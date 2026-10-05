@@ -130,14 +130,23 @@ function asDistinctCategoryList(data: unknown): string[] {
   return out;
 }
 
+// Sessão de admin (e-mail + OTP já validado), enviada nas rotas protegidas do backend
+let adminAuth: { email: string; otp: string } | null = null;
+
+function adminHeaders(): Record<string, string> {
+  return adminAuth ? { 'X-Admin-Email': adminAuth.email, 'X-Admin-Otp': adminAuth.otp } : {};
+}
+
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  // `headers` é separado de `...rest` para não sobrescrever o Content-Type ao enviar cabeçalhos extras
+  const { headers, ...rest } = options ?? {};
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...rest,
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      ...options?.headers,
+      ...(headers as Record<string, string> | undefined),
     },
-    ...options,
   });
 
   const body: unknown = await response.json().catch(() => ({}));
@@ -150,6 +159,14 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 }
 
 export const dbService = {
+  setAdminAuth: (email: string, otp: string): void => {
+    adminAuth = { email, otp };
+  },
+
+  clearAdminAuth: (): void => {
+    adminAuth = null;
+  },
+
   getAdminResultsDashboard: async (email: string, otp: string): Promise<AdminResultsDashboardData> =>
     apiRequest<AdminResultsDashboardData>('/admin/results-dashboard', {
       headers: { 'X-Admin-Email': email, 'X-Admin-Otp': otp },
@@ -201,7 +218,7 @@ export const dbService = {
   /** Todas as perguntas de uma prova (ordem: categoria, id) — uso administrativo. */
   listAllQuestionsForExam: async (exam: string): Promise<Question[]> => {
     const q = encodeURIComponent(exam.trim());
-    return apiRequest<Question[]>(`/questions?exam=${q}&listAll=1`);
+    return apiRequest<Question[]>(`/questions?exam=${q}&listAll=1`, { headers: adminHeaders() });
   },
 
   /** Lista paginada por prova; `search` ativa ordenação por relevância (busca semântica leve no servidor). */
@@ -224,12 +241,13 @@ export const dbService = {
     if (cat) {
       qs += `&category=${encodeURIComponent(cat)}`;
     }
-    return apiRequest<BrowseQuestionsResponse>(`/questions/browse${qs}`);
+    return apiRequest<BrowseQuestionsResponse>(`/questions/browse${qs}`, { headers: adminHeaders() });
   },
 
   updateQuestion: async (id: string, question: Omit<Question, '_id'>): Promise<Question> => {
     const updated = await apiRequest<Question>(`/questions/${encodeURIComponent(id)}`, {
       method: 'PUT',
+      headers: adminHeaders(),
       body: JSON.stringify(question),
     });
     cache.delete('getExams');
@@ -239,6 +257,7 @@ export const dbService = {
   deleteQuestion: async (id: string): Promise<void> => {
     await apiRequest<unknown>(`/questions/${encodeURIComponent(id)}`, {
       method: 'DELETE',
+      headers: adminHeaders(),
     });
     cache.delete('getExams');
   },
@@ -291,6 +310,7 @@ export const dbService = {
     const query = exam ? `?exam=${encodeURIComponent(exam)}` : '';
     return apiRequest<{ deletedCount: number }>(`/results/user/${encodeURIComponent(userId)}${query}`, {
       method: 'DELETE',
+      headers: adminHeaders(),
     });
   },
 
@@ -316,6 +336,7 @@ export const dbService = {
   addDomain: async (domain: string, requesterEmail: string, company: string): Promise<{ success: boolean; message?: string }> => {
     return apiRequest<{ success: boolean; message?: string }>('/domain', {
       method: 'POST',
+      headers: adminHeaders(),
       body: JSON.stringify({ domain, requesterEmail, company }),
     });
   },
@@ -323,6 +344,7 @@ export const dbService = {
   addQuestion: async (question: Omit<Question, '_id'>): Promise<Question> => {
     const created = await apiRequest<Question>('/questions', {
       method: 'POST',
+      headers: adminHeaders(),
       body: JSON.stringify(question),
     });
     cache.delete('getExams');
