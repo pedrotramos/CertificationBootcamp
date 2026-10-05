@@ -192,6 +192,25 @@ export const dbService = {
 
   clearSession: (): void => clearSessionToken(),
 
+  /**
+   * Encerra a sessão: descarta o token localmente na hora e pede ao servidor para revogá-lo
+   * (vale também para os tokens de outros dispositivos). Falha de rede não impede o logout local.
+   */
+  logout: async (): Promise<void> => {
+    const token = getSessionToken();
+    clearSessionToken();
+    if (!token) return;
+    try {
+      await apiRequest('/session/logout', {
+        method: 'POST',
+        keepalive: true,
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      console.error('Failed to revoke session on the server:', error);
+    }
+  },
+
   /** Usuário dono da sessão (null se o OTP foi validado mas o cadastro ainda não foi feito). */
   getCurrentUser: async (): Promise<User | null> => apiRequest<User | null>('/users/me'),
 
