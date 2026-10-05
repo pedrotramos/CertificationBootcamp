@@ -79,6 +79,9 @@ const Admin: React.FC = () => {
     const optionCellInputClasses =
         'min-w-0 max-w-full rounded bg-[#1B3139] text-white border border-slate-700 text-xs placeholder:text-[10px] px-2 py-2 overflow-hidden text-ellipsis whitespace-nowrap';
 
+    // Ao sair do painel, descarta a sessão de admin em memória
+    useEffect(() => () => dbService.clearAdminAuth(), []);
+
     useEffect(() => {
         if (!otpValidated || (activeTab !== 'questions' && activeTab !== 'results' && activeTab !== 'explore')) {
             return;
@@ -270,6 +273,7 @@ const Admin: React.FC = () => {
         try {
             const result = await dbService.validateOTP(email.trim(), otp);
             if (result.valid) {
+                dbService.setAdminAuth(email.trim(), otp);
                 setOtpValidated(true);
                 setErrorMsg(null);
             } else {
@@ -591,6 +595,7 @@ const Admin: React.FC = () => {
                                             if (otpSent) {
                                                 setOtpSent(false);
                                                 setOtpValidated(false);
+                                                dbService.clearAdminAuth();
                                                 setOtp('');
                                             }
                                         }}
