@@ -19,8 +19,9 @@ export interface Question {
   enunciado: string;
   enunciadoImageUrl?: string;
   options: Option[];
-  correctOptionId: string;
-  explanation: string;
+  // Ausentes nas questões da prova: o servidor só envia gabarito e explicação depois que a prova é entregue
+  correctOptionId?: string;
+  explanation?: string;
   category: string;
   exam: string;
 }
@@ -48,6 +49,13 @@ export interface ExamResult {
     isCorrect: boolean;
     category: string;
   }[];
+}
+
+/** Corpo de POST /api/results: nota, acertos e data são calculados pelo servidor. */
+export interface SubmitResultPayload {
+  userId: string;
+  exam: string;
+  answers: { questionId: string; selectedOptionId: string }[];
 }
 
 export interface AdminResultAttempt {
