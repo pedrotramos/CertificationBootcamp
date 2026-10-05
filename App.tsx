@@ -12,6 +12,7 @@ import ResultsChart from './components/ResultsChart';
 import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
 import type { ExamClock } from './types';
+import ConfirmDialog from './components/ConfirmDialog';
 import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
 
 const PROHIBITED_DOMAINS = [
@@ -152,6 +153,8 @@ const App: React.FC = () => {
   const [examStatus, setExamStatus] = useState<ExamStatus>('new');
   // Só mostra "verificando sessão" se existe um token guardado: visitante novo vê o formulário na hora
   const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => dbService.hasSession());
+  // Ação adiada enquanto o usuário confirma que quer sair da prova em andamento
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const [examsLoadFailed, setExamsLoadFailed] = useState(false);
   const [examsReloadKey, setExamsReloadKey] = useState(0);
   const [questionsLoadFailed, setQuestionsLoadFailed] = useState(false);
@@ -223,6 +226,17 @@ const App: React.FC = () => {
       checkExistingSession();
     }
   }, [location.pathname, user]);
+
+  // Fechar ou recarregar a aba no meio da prova: pede confirmação do navegador
+  useEffect(() => {
+    if (location.pathname !== '/exam' || isTimeExpired) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [location.pathname, isTimeExpired]);
 
   // Rótulo do botão da home: iniciar, continuar (prova pausada) ou conferir resultados
   useEffect(() => {
@@ -512,6 +526,16 @@ const App: React.FC = () => {
       dbService.clearSession();
       setIsAuthenticated(false);
       return false;
+    }
+  };
+
+  // Sair da prova em andamento pede confirmação: o tempo é pausado e dá para continuar depois
+  const guardLeave = (action: () => void) => {
+    if (location.pathname === '/exam' && questions.length > 0 && !isTimeExpired) {
+      setIsMobileMenuOpen(false);
+      setPendingLeave(() => action);
+    } else {
+      action();
     }
   };
 
@@ -933,7 +957,7 @@ const App: React.FC = () => {
                   {!isTimeExpired && (
                     <button
                       type="button"
-                      onClick={() => navigate('/')}
+                      onClick={() => guardLeave(() => navigate('/'))}
                       title="O tempo para de contar e você continua de onde parou"
                       className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-[#FF3621] underline underline-offset-2"
                     >
@@ -1892,7 +1916,7 @@ const App: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
-                    handleNavigateToResults();
+                    guardLeave(handleNavigateToResults);
                   }}
                   className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
                 >
@@ -1915,7 +1939,7 @@ const App: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  handleGoHome();
+                  guardLeave(handleGoHome);
                 }}
                 className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
               >
@@ -1926,7 +1950,7 @@ const App: React.FC = () => {
               type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                navigate('/faq');
+                guardLeave(() => navigate('/faq'));
               }}
               className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
             >
@@ -1936,7 +1960,7 @@ const App: React.FC = () => {
               type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
-                navigate('/contact');
+                guardLeave(() => navigate('/contact'));
               }}
               className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
             >
@@ -1958,7 +1982,7 @@ const App: React.FC = () => {
                     type="button"
                     onClick={() => {
                       setIsMobileMenuOpen(false);
-                      handleLogout();
+                      guardLeave(handleLogout);
                     }}
                     className="w-full text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors px-4 py-2 border border-slate-600 hover:border-slate-400 rounded"
                   >
@@ -1980,8 +2004,8 @@ const App: React.FC = () => {
           role="button"
           tabIndex={0}
           aria-label="Ir para a página inicial"
-          onClick={handleLogoClick}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLogoClick(); } }}
+          onClick={() => guardLeave(handleLogoClick)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); guardLeave(handleLogoClick); } }}
         >
           <div className="w-32 h-8 md:w-64 md:h-16 flex items-center justify-center">
             <img
@@ -2017,7 +2041,7 @@ const App: React.FC = () => {
               hasResults ? (
                 <button
                   type="button"
-                  onClick={handleNavigateToResults}
+                  onClick={() => guardLeave(handleNavigateToResults)}
                   className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
                 >
                   Resultados
@@ -2034,7 +2058,7 @@ const App: React.FC = () => {
             ) : (
               <button
                 type="button"
-                onClick={handleGoHome}
+                onClick={() => guardLeave(handleGoHome)}
                 className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
               >
                 Home
@@ -2042,14 +2066,14 @@ const App: React.FC = () => {
             )}
             <button
               type="button"
-              onClick={() => navigate('/faq')}
+              onClick={() => guardLeave(() => navigate('/faq'))}
               className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
             >
               FAQ
             </button>
             <button
               type="button"
-              onClick={() => navigate('/contact')}
+              onClick={() => guardLeave(() => navigate('/contact'))}
               className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
             >
               Contato
@@ -2076,6 +2100,20 @@ const App: React.FC = () => {
           </div>
         </div>
       </nav>
+      {pendingLeave && (
+        <ConfirmDialog
+          title="Sair da prova?"
+          message="O tempo será pausado e você poderá continuar de onde parou. Suas respostas ficam salvas neste navegador."
+          confirmLabel="Pausar e sair"
+          cancelLabel="Continuar a prova"
+          onCancel={() => setPendingLeave(null)}
+          onConfirm={() => {
+            const action = pendingLeave;
+            setPendingLeave(null);
+            action();
+          }}
+        />
+      )}
       <main id="conteudo" tabIndex={-1} className="container mx-auto outline-none">
         {renderContent()}
       </main>
