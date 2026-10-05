@@ -3,6 +3,8 @@ import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashbo
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
+const API_TIMEOUT_MS = 20_000;
+
 // Cache configuration
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 const CACHE_CLEANUP_INTERVAL = 15 * 60 * 1000; // Clean up every 15 minutes
@@ -161,17 +163,31 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
   // `headers` é separado de `...rest` para não sobrescrever o Content-Type ao enviar cabeçalhos extras
   const { headers, ...rest } = options ?? {};
   const token = getSessionToken();
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...rest,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(headers as Record<string, string> | undefined),
-    },
-  });
-
-  const body: unknown = await response.json().catch(() => ({}));
+  // Sem timeout a interface parece travada em rede lenta; aborta e devolve uma mensagem que o usuário entende
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+  let response: Response;
+  let body: unknown;
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...rest,
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(headers as Record<string, string> | undefined),
+      },
+    });
+    body = await response.json().catch(() => ({}));
+  } catch (err) {
+    if (controller.signal.aborted) {
+      throw new Error('O servidor demorou demais para responder. Tente novamente.');
+    }
+    throw new Error('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     // Token expirado/inválido: descarta a sessão para o app voltar à tela de login

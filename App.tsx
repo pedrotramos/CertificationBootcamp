@@ -150,6 +150,12 @@ const App: React.FC = () => {
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [examStatus, setExamStatus] = useState<ExamStatus>('new');
+  // Só mostra "verificando sessão" se existe um token guardado: visitante novo vê o formulário na hora
+  const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => dbService.hasSession());
+  const [examsLoadFailed, setExamsLoadFailed] = useState(false);
+  const [examsReloadKey, setExamsReloadKey] = useState(0);
+  const [questionsLoadFailed, setQuestionsLoadFailed] = useState(false);
+  const [questionsReloadKey, setQuestionsReloadKey] = useState(0);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [examTimer, setExamTimer] = useState<ExamTimer | null>(null);
@@ -173,25 +179,29 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadExams = async () => {
       setLoadingHomeExams(true);
+      setExamsLoadFailed(false);
       try {
         const exams = await dbService.getExams({ minQuestions: SIMULADO_QUESTION_COUNT });
         setAvailableExams(exams);
       } catch (err) {
         console.error('Error loading exams:', err);
         setAvailableExams([]);
+        setExamsLoadFailed(true);
       } finally {
         setLoadingHomeExams(false);
       }
     };
     loadExams();
+  }, [examsReloadKey]);
 
+  useEffect(() => {
     // Check authentication status
     // 'validatedEmail' era a sessão antiga (um e-mail em texto puro, sem verificação): descarta
     localStorage.removeItem('validatedEmail');
     setIsAuthenticated(dbService.hasSession());
 
     // Check for existing session when app loads
-    checkExistingSession();
+    checkExistingSession().finally(() => setIsCheckingSession(false));
   }, []);
 
   useEffect(() => {
@@ -244,17 +254,18 @@ const App: React.FC = () => {
         if (!selectedExam && examToUse) {
           setSelectedExam(examToUse);
         }
+        setQuestionsLoadFailed(false);
         try {
           const q = await dbService.getQuestions(examToUse);
           setQuestions(q);
         } catch (err) {
           console.error('Error loading questions:', err);
-          setErrorMsg('Erro ao carregar as perguntas. Tente novamente.');
+          setQuestionsLoadFailed(true);
         }
       }
     };
     loadQuestionsForExam();
-  }, [location.pathname, user, selectedExam, navigate]);
+  }, [location.pathname, user, selectedExam, navigate, questionsReloadKey]);
 
   // Load exam progress when entering exam page
   useEffect(() => {
@@ -870,6 +881,24 @@ const App: React.FC = () => {
     const path = location.pathname;
 
     if (path === '/exam') {
+      if (user && questions.length === 0) {
+        // Perguntas ainda carregando (ou falha ao carregar): não volta para a home às cegas
+        return (
+          <div className="max-w-md mx-auto py-16 px-4 text-center space-y-4" role={questionsLoadFailed ? 'alert' : 'status'}>
+            {questionsLoadFailed ? (
+              <>
+                <p className="text-sm font-bold text-red-700">Não foi possível carregar as perguntas. Verifique sua conexão.</p>
+                <div className="flex items-center justify-center gap-3">
+                  <Button onClick={() => setQuestionsReloadKey(k => k + 1)}>Tentar novamente</Button>
+                  <Button variant="outline" onClick={() => navigate('/')}>Voltar</Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm font-bold text-slate-500">Carregando prova…</p>
+            )}
+          </div>
+        );
+      }
       if (questions.length === 0 || !user) {
         navigate('/');
         return null;
@@ -1460,6 +1489,9 @@ const App: React.FC = () => {
                 </div>
               )}
 
+              {isCheckingSession ? (
+                <p role="status" className="text-sm font-bold text-slate-500 py-8 text-center">Verificando sua sessão…</p>
+              ) : (
               <form onSubmit={handleRegister} className="space-y-4">
                 {isAuthenticated && user ? (
                   <>
@@ -1496,6 +1528,14 @@ const App: React.FC = () => {
                             ? `Não há provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões cadastradas.`
                             : `Só listamos provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões (tamanho do simulado).`}
                       </p>
+                      {examsLoadFailed && !loadingHomeExams && (
+                        <div role="alert" className="flex items-center gap-3 text-xs font-bold text-red-700">
+                          Não foi possível carregar as provas.
+                          <button type="button" onClick={() => setExamsReloadKey(k => k + 1)} className="underline underline-offset-2 hover:text-red-900">
+                            Tentar novamente
+                          </button>
+                        </div>
+                      )}
                     </div>
                     <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
                       {EXAM_BUTTON_LABEL[examStatus]}
@@ -1565,6 +1605,14 @@ const App: React.FC = () => {
                             ? `Não há provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões cadastradas.`
                             : `Só listamos provas com pelo menos ${SIMULADO_QUESTION_COUNT} questões (tamanho do simulado).`}
                       </p>
+                      {examsLoadFailed && !loadingHomeExams && (
+                        <div role="alert" className="flex items-center gap-3 text-xs font-bold text-red-700">
+                          Não foi possível carregar as provas.
+                          <button type="button" onClick={() => setExamsReloadKey(k => k + 1)} className="underline underline-offset-2 hover:text-red-900">
+                            Tentar novamente
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {!otpSent ? (
@@ -1605,6 +1653,7 @@ const App: React.FC = () => {
                   </>
                 )}
               </form>
+              )}
             </Card>
           </div>
           <footer className="max-w-4xl mx-auto mt-16 pt-8 border-t border-slate-200">
