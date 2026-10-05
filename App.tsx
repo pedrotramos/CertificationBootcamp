@@ -12,6 +12,7 @@ import ResultsChart from './components/ResultsChart';
 import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
 import type { ExamClock } from './types';
+import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
 
 const PROHIBITED_DOMAINS = [
   'gmail.com',
@@ -28,7 +29,6 @@ const PROHIBITED_DOMAINS = [
 // Helper functions to manage exam progress in localStorage
 const EXAM_PROGRESS_KEY = 'examProgress';
 const SELECTED_EXAM_KEY = 'selectedExam';
-const EXAM_TIMER_KEY = 'examTimer';
 
 const EXAM_DURATION_MS = 90 * 60 * 1000; // 90 minutes in milliseconds
 
@@ -149,6 +149,7 @@ const App: React.FC = () => {
   const [loadingHomeExams, setLoadingHomeExams] = useState(true);
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [hasResults, setHasResults] = useState<boolean>(false);
+  const [examStatus, setExamStatus] = useState<ExamStatus>('new');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [examTimer, setExamTimer] = useState<ExamTimer | null>(null);
@@ -212,6 +213,23 @@ const App: React.FC = () => {
       checkExistingSession();
     }
   }, [location.pathname, user]);
+
+  // Rótulo do botão da home: iniciar, continuar (prova pausada) ou conferir resultados
+  useEffect(() => {
+    if (location.pathname !== '/' || !isAuthenticated || !user || !selectedExam) {
+      setExamStatus('new');
+      return;
+    }
+    const userId = user._id?.toString() || '';
+    let cancelled = false;
+    setExamStatus(resolveExamStatus(false, hasPausedExam(userId, selectedExam)));
+    dbService.getUserResults(userId, selectedExam)
+      .then(results => {
+        if (!cancelled) setExamStatus(resolveExamStatus(results.length > 0, hasPausedExam(userId, selectedExam)));
+      })
+      .catch(error => console.error('Failed to check exam status:', error));
+    return () => { cancelled = true; };
+  }, [location.pathname, isAuthenticated, user, selectedExam]);
 
   // Load questions when entering exam page
   useEffect(() => {
@@ -1479,7 +1497,7 @@ const App: React.FC = () => {
                       </p>
                     </div>
                     <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
-                      {hasResults ? 'Ver Resultados' : 'Iniciar Prova'}
+                      {EXAM_BUTTON_LABEL[examStatus]}
                     </Button>
                   </>
                 ) : (
