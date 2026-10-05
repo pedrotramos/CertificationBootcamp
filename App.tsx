@@ -906,7 +906,7 @@ const App: React.FC = () => {
                       type="button"
                       onClick={() => navigate('/')}
                       title="O tempo para de contar e você continua de onde parou"
-                      className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-[#FF3621] underline underline-offset-2"
+                      className="text-xs font-black uppercase tracking-widest text-slate-500 hover:text-[#FF3621] underline underline-offset-2"
                     >
                       Pausar
                     </button>
@@ -960,8 +960,8 @@ const App: React.FC = () => {
           {/* Question Pagination */}
           <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Navegação de Questões</span>
-              <span className="text-[10px] font-black text-slate-500">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Navegação de Questões</span>
+              <span className="text-xs font-black text-slate-500">
                 {Object.keys(answers).length} / {questions.length} respondidas
               </span>
             </div>
@@ -991,7 +991,7 @@ const App: React.FC = () => {
                 );
               })}
             </div>
-            <div className="mt-3 flex items-center gap-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+            <div className="mt-3 flex items-center gap-4 text-xs font-black text-slate-500 uppercase tracking-widest">
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-green-500 border-2 border-green-600"></div>
                 <span>Respondida</span>
@@ -1071,7 +1071,7 @@ const App: React.FC = () => {
                           <span className={`text-6xl font-black tracking-tighter ${passed ? 'text-green-600' : 'text-[#FF3621]'}`}>
                             {percentage}%
                           </span>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em] mt-1">
+                          <span className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] mt-1">
                             Aproveitamento
                           </span>
                         </div>
@@ -1080,15 +1080,15 @@ const App: React.FC = () => {
                       <div className="grid grid-cols-3 gap-6 w-full max-w-2xl mt-8">
                         <div className="text-center p-4 border-r border-slate-100 last:border-0">
                           <div className="text-2xl font-black text-green-600">{finalResult.score}</div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Acertos</div>
+                          <div className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Acertos</div>
                         </div>
                         <div className="text-center p-4 border-r border-slate-100 last:border-0">
                           <div className="text-2xl font-black text-[#FF3621]">{finalResult.totalQuestions - finalResult.score}</div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Erros</div>
+                          <div className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Erros</div>
                         </div>
                         <div className="text-center p-4">
                           <div className="text-2xl font-black text-[#1B3139]">{finalResult.totalQuestions}</div>
-                          <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Total</div>
+                          <div className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Total</div>
                         </div>
                       </div>
                     </div>
@@ -1116,7 +1116,7 @@ const App: React.FC = () => {
               })()}
 
               <div className="mt-12 pt-8 border-t border-slate-50 w-full text-center">
-                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Registro de Tentativa Única Concluído</p>
+                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Registro de Tentativa Única Concluído</p>
                 <div className="flex justify-center">
                   <Button onClick={() => navigate('/')} variant="secondary" className="px-12">
                     Voltar ao Início
@@ -1134,14 +1134,14 @@ const App: React.FC = () => {
                 <Card key={answer.questionId} className={`p-8 border-l-4 ${answer.isCorrect ? 'border-l-green-500' : 'border-l-[#FF3621]'} shadow-sm`}>
                   <div className="flex flex-col gap-6">
                     <div className="space-y-2">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Questão {index + 1}</span>
+                      <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Questão {index + 1}</span>
                       <p className="text-lg font-bold text-[#1B3139] leading-snug" dangerouslySetInnerHTML={{ __html: question.enunciado }} />
                     </div>
 
                     {answer.isCorrect && (
                       <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                         <div className="p-4 bg-slate-50 border border-slate-100 rounded-sm">
-                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sua Resposta</span>
+                          <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Sua Resposta</span>
                           <span className="font-bold text-slate-700">{question.options.find(o => o.id === answer.selectedOptionId)?.text || 'Nenhuma'}</span>
                           {question.options.find(o => o.id === answer.selectedOptionId)?.imageUrl && (
                             <img
@@ -1155,7 +1155,7 @@ const App: React.FC = () => {
                     {!answer.isCorrect && (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="p-4 bg-slate-50 border border-slate-100 rounded-sm">
-                          <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sua Resposta</span>
+                          <span className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2">Sua Resposta</span>
                           <span className="font-bold text-slate-700">{question.options.find(o => o.id === answer.selectedOptionId)?.text}</span>
                           {question.options.find(o => o.id === answer.selectedOptionId)?.imageUrl && (
                             <img
@@ -1165,7 +1165,7 @@ const App: React.FC = () => {
                           )}
                         </div>
                         <div className="p-4 bg-green-50 border border-green-100 rounded-sm">
-                          <span className="block text-[10px] font-black text-green-600 uppercase tracking-widest mb-2">Gabarito Oficial</span>
+                          <span className="block text-xs font-black text-green-600 uppercase tracking-widest mb-2">Gabarito Oficial</span>
                           <span className="font-black text-green-800">{question.options.find(o => o.id === question.correctOptionId)?.text}</span>
                           {question.options.find(o => o.id === answer.selectedOptionId)?.imageUrl && (
                             <img
@@ -1181,7 +1181,7 @@ const App: React.FC = () => {
                       <details className="group" aria-labelledby={`explanation-toggle-${question._id}`}>
                         <summary
                           id={`explanation-toggle-${question._id}`}
-                          className="cursor-pointer text-[#FF3621] hover:text-[#E6311D] font-black text-[10px] uppercase tracking-widest flex items-center gap-2 select-none transition-all focus:outline-none"
+                          className="cursor-pointer text-[#FF3621] hover:text-[#E6311D] font-black text-xs uppercase tracking-widest flex items-center gap-2 select-none transition-all focus:outline-none"
                         >
                           <span className="group-open:hidden">Ver Explicação</span>
                           <span className="hidden group-open:inline">Ocultar Explicação</span>
@@ -1224,7 +1224,7 @@ const App: React.FC = () => {
         <div className="max-w-3xl mx-auto py-12 px-4 space-y-8">
           <Card className="p-8 md:p-10 shadow-2xl border-t-4 border-t-[#FF3621] bg-white">
             <div className="space-y-4">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
                 Fale com a equipe
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold text-[#1B3139] leading-tight uppercase tracking-tight">
@@ -1291,7 +1291,7 @@ const App: React.FC = () => {
         <div className="max-w-3xl mx-auto py-12 px-4 space-y-8">
           <Card className="p-8 md:p-10 shadow-2xl border-t-4 border-t-[#1B3139] bg-white">
             <div className="space-y-4 mb-6">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
                 Perguntas Frequentes
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold text-[#1B3139] leading-tight uppercase tracking-tight">
@@ -1467,7 +1467,7 @@ const App: React.FC = () => {
                       Autenticado como: {user.firstName} {user.lastName}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400">Prova</label>
+                      <label className="text-xs font-black uppercase text-slate-400">Prova</label>
                       <select
                         required
                         disabled={loadingHomeExams || availableExams.length === 0}
@@ -1488,7 +1488,7 @@ const App: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[9px] text-slate-500 mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         {loadingHomeExams
                           ? 'Buscando provas disponíveis…'
                           : availableExams.length === 0
@@ -1504,16 +1504,16 @@ const App: React.FC = () => {
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400">Nome</label>
+                        <label className="text-xs font-black uppercase text-slate-400">Nome</label>
                         <input required disabled={otpSent} className={inputClasses} placeholder="Primeiro Nome" value={formData.firstName} onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))} />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase text-slate-400">Sobrenome</label>
+                        <label className="text-xs font-black uppercase text-slate-400">Sobrenome</label>
                         <input required disabled={otpSent} className={inputClasses} placeholder="Sobrenome" value={formData.lastName} onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))} />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400">E-mail Corporativo</label>
+                      <label className="text-xs font-black uppercase text-slate-400">E-mail Corporativo</label>
                       <input
                         required
                         type="email"
@@ -1533,7 +1533,7 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black uppercase text-slate-400">Prova</label>
+                      <label className="text-xs font-black uppercase text-slate-400">Prova</label>
                       <select
                         required
                         disabled={otpSent || loadingHomeExams || availableExams.length === 0}
@@ -1554,7 +1554,7 @@ const App: React.FC = () => {
                           </option>
                         ))}
                       </select>
-                      <p className="text-[9px] text-slate-500 mt-1">
+                      <p className="text-xs text-slate-500 mt-1">
                         {loadingHomeExams
                           ? 'Buscando provas disponíveis…'
                           : availableExams.length === 0
@@ -1570,7 +1570,7 @@ const App: React.FC = () => {
                     ) : (
                       <>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-black uppercase text-slate-400">Código de Verificação (OTP)</label>
+                          <label className="text-xs font-black uppercase text-slate-400">Código de Verificação (OTP)</label>
                           <input
                             required
                             type="text"
@@ -1580,7 +1580,7 @@ const App: React.FC = () => {
                             onChange={(e) => setOtp(e.target.value)}
                             maxLength={6}
                           />
-                          <p className="text-[9px] text-slate-500 mt-1">
+                          <p className="text-xs text-slate-500 mt-1">
                             Um código de verificação foi enviado para <span className="font-bold">{formData.email}</span>
                           </p>
                         </div>
@@ -1671,7 +1671,7 @@ const App: React.FC = () => {
         <div className="max-w-3xl mx-auto py-12 px-4 space-y-8">
           <Card className="p-8 md:p-10 shadow-2xl border-t-4 border-t-[#1B3139] bg-white">
             <div className="space-y-4 mb-6">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+              <span className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
                 Perguntas Frequentes
               </span>
               <h1 className="text-3xl md:text-4xl font-extrabold text-[#1B3139] leading-tight uppercase tracking-tight">
@@ -1837,7 +1837,7 @@ const App: React.FC = () => {
                     setIsMobileMenuOpen(false);
                     handleNavigateToResults();
                   }}
-                  className="text-left text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+                  className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
                 >
                   Resultados
                 </button>
@@ -1848,7 +1848,7 @@ const App: React.FC = () => {
                     setIsMobileMenuOpen(false);
                     handleNavigateToExam();
                   }}
-                  className="text-left text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+                  className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
                 >
                   Prova
                 </button>
@@ -1860,7 +1860,7 @@ const App: React.FC = () => {
                   setIsMobileMenuOpen(false);
                   handleGoHome();
                 }}
-                className="text-left text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+                className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
               >
                 Home
               </button>
@@ -1871,7 +1871,7 @@ const App: React.FC = () => {
                 setIsMobileMenuOpen(false);
                 navigate('/faq');
               }}
-              className="text-left text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+              className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
             >
               FAQ
             </button>
@@ -1881,7 +1881,7 @@ const App: React.FC = () => {
                 setIsMobileMenuOpen(false);
                 navigate('/contact');
               }}
-              className="text-left text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+              className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
             >
               Contato
             </button>
@@ -1893,7 +1893,7 @@ const App: React.FC = () => {
                       {user.firstName[0]}{user.lastName[0]}
                     </div>
                     <div className="flex flex-col flex-1 min-w-0">
-                      <p className="text-[9px] font-black text-[#FF3621] uppercase tracking-[0.2em]">{user.company}</p>
+                      <p className="text-xs font-black text-[#FF3621] uppercase tracking-[0.2em]">{user.company}</p>
                       <p className="text-xs font-black uppercase tracking-tight">{user.firstName} {user.lastName}</p>
                     </div>
                   </div>
@@ -1903,7 +1903,7 @@ const App: React.FC = () => {
                       setIsMobileMenuOpen(false);
                       handleLogout();
                     }}
-                    className="w-full text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors px-4 py-2 border border-slate-600 hover:border-slate-400 rounded"
+                    className="w-full text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors px-4 py-2 border border-slate-600 hover:border-slate-400 rounded"
                   >
                     Sair
                   </button>
@@ -1950,7 +1950,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleNavigateToResults}
-                  className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+                  className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
                 >
                   Resultados
                 </button>
@@ -1958,7 +1958,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleNavigateToExam}
-                  className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+                  className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
                 >
                   Prova
                 </button>
@@ -1967,7 +1967,7 @@ const App: React.FC = () => {
               <button
                 type="button"
                 onClick={handleGoHome}
-                className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+                className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
               >
                 Home
               </button>
@@ -1975,21 +1975,21 @@ const App: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate('/faq')}
-              className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+              className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
             >
               FAQ
             </button>
             <button
               type="button"
               onClick={() => navigate('/contact')}
-              className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+              className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
             >
               Contato
             </button>
             {user && (
               <div className="flex items-center gap-3 md:gap-4">
                 <div className="hidden md:block text-right">
-                  <p className="text-[9px] font-black text-[#FF3621] uppercase tracking-[0.2em]">{user.company}</p>
+                  <p className="text-xs font-black text-[#FF3621] uppercase tracking-[0.2em]">{user.company}</p>
                   <p className="text-xs font-black uppercase tracking-tight">{user.firstName} {user.lastName}</p>
                 </div>
                 <div className="w-9 h-9 rounded-sm bg-[#FF3621] flex items-center justify-center font-black text-xs text-white">
@@ -1998,7 +1998,7 @@ const App: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors px-2 py-1 border border-slate-600 hover:border-slate-400 rounded"
+                  className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors px-2 py-1 border border-slate-600 hover:border-slate-400 rounded"
                   title="Sair"
                 >
                   Sair
@@ -2016,12 +2016,12 @@ const App: React.FC = () => {
         <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 py-3 px-6 md:hidden shadow-2xl z-50">
           <div className="flex justify-between items-center max-w-lg mx-auto gap-4">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Q{currentQuestionIndex + 1} DE {questions.length}</span>
+              <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Q{currentQuestionIndex + 1} DE {questions.length}</span>
               <div className={`flex items-center gap-1 ${isTimeExpired || remainingTime < 5 * 60 * 1000 ? 'text-red-600' : remainingTime < 15 * 60 * 1000 ? 'text-orange-600' : 'text-slate-600'}`}>
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className={`text-[10px] font-black ${isTimeExpired ? 'animate-pulse' : ''}`}>
+                <span className={`text-xs font-black ${isTimeExpired ? 'animate-pulse' : ''}`}>
                   {isTimeExpired ? '00:00' : formatTime(remainingTime)}
                 </span>
               </div>

@@ -17,7 +17,7 @@ const QuestionView: React.FC<QuestionViewProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="space-y-4">
-        <span className="px-3 py-1 bg-slate-100 text-[#1B3139] border border-slate-200 rounded text-[10px] font-black uppercase tracking-widest">
+        <span className="px-3 py-1 bg-slate-100 text-[#1B3139] border border-slate-200 rounded text-xs font-black uppercase tracking-widest">
           CATEGORIA: {question.category}
         </span>
         <h2
