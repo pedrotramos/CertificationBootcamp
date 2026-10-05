@@ -36,12 +36,21 @@ const QuestionView: React.FC<QuestionViewProps> = ({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4" role="radiogroup" aria-label="Alternativas">
         {question.options.map((option) => (
           <Card
             key={option.id}
+            role="radio"
+            aria-checked={selectedOptionId === option.id}
+            tabIndex={0}
             onClick={() => onSelectOption(option.id)}
-            className={`p-6 flex flex-col items-start text-left gap-4 border-2 rounded transition-all ${selectedOptionId === option.id
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectOption(option.id);
+              }
+            }}
+            className={`focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#FF3621] p-6 flex flex-col items-start text-left gap-4 border-2 rounded transition-all ${selectedOptionId === option.id
               ? 'border-[#FF3621] bg-[#FF3621]/5'
               : 'border-slate-100 hover:border-slate-300'
               }`}

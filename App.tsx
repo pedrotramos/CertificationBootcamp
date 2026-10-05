@@ -895,7 +895,7 @@ const App: React.FC = () => {
               </span>
               <div className="flex items-center gap-4">
                 <div className={`flex items-center gap-2 ${isTimeCritical ? 'text-red-600' : isTimeWarning ? 'text-orange-600' : 'text-[#1B3139]'}`}>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className={`text-xs font-black ${isTimeCritical ? 'animate-pulse' : ''}`}>
@@ -929,7 +929,7 @@ const App: React.FC = () => {
               </div>
             </div>
             {isTimeExpired && (
-              <div className="mt-2 p-2 bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-tight rounded">
+              <div role="alert" className="mt-2 p-2 bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-tight rounded">
                 Tempo esgotado! O simulado será finalizado automaticamente.
               </div>
             )}
@@ -1202,7 +1202,7 @@ const App: React.FC = () => {
                         </summary>
                         <div className="mt-4 p-6 bg-[#1B3139] text-white rounded-sm border-l-4 border-[#FF3621] space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                           <div className="flex items-center gap-3 text-[#FF3621]">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
                           </div>
@@ -1250,7 +1250,7 @@ const App: React.FC = () => {
                   className="inline-flex items-center gap-2 text-sm font-bold text-[#FF3621] hover:text-[#E6311D] underline underline-offset-4 decoration-[#FF3621]"
                 >
                   pedro.ramos@databricks.com
-                  <svg
+                  <svg aria-hidden="true"
                     className="w-4 h-4"
                     fill="none"
                     stroke="currentColor"
@@ -1313,7 +1313,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1334,7 +1334,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1356,7 +1356,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1378,7 +1378,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1398,7 +1398,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1455,7 +1455,7 @@ const App: React.FC = () => {
               </div>
 
               {errorMsg && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-tight rounded">
+                <div role="alert" className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs font-bold uppercase tracking-tight rounded">
                   {errorMsg}
                 </div>
               )}
@@ -1467,8 +1467,9 @@ const App: React.FC = () => {
                       Autenticado como: {user.firstName} {user.lastName}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-black uppercase text-slate-400">Prova</label>
+                      <label htmlFor="campo-prova-logado" className="text-xs font-black uppercase text-slate-400">Prova</label>
                       <select
+                        id="campo-prova-logado"
                         required
                         disabled={loadingHomeExams || availableExams.length === 0}
                         className={`${inputClasses} cursor-pointer`}
@@ -1504,17 +1505,19 @@ const App: React.FC = () => {
                   <>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-xs font-black uppercase text-slate-400">Nome</label>
-                        <input required disabled={otpSent} className={inputClasses} placeholder="Primeiro Nome" value={formData.firstName} onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))} />
+                        <label htmlFor="campo-nome" className="text-xs font-black uppercase text-slate-400">Nome</label>
+                        <input id="campo-nome" autoComplete="given-name" required disabled={otpSent} className={inputClasses} placeholder="Primeiro Nome" value={formData.firstName} onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))} />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-xs font-black uppercase text-slate-400">Sobrenome</label>
-                        <input required disabled={otpSent} className={inputClasses} placeholder="Sobrenome" value={formData.lastName} onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))} />
+                        <label htmlFor="campo-sobrenome" className="text-xs font-black uppercase text-slate-400">Sobrenome</label>
+                        <input id="campo-sobrenome" autoComplete="family-name" required disabled={otpSent} className={inputClasses} placeholder="Sobrenome" value={formData.lastName} onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))} />
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-black uppercase text-slate-400">E-mail Corporativo</label>
+                      <label htmlFor="campo-email" className="text-xs font-black uppercase text-slate-400">E-mail Corporativo</label>
                       <input
+                        id="campo-email"
+                        autoComplete="email"
                         required
                         type="email"
                         disabled={otpSent}
@@ -1533,8 +1536,9 @@ const App: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-black uppercase text-slate-400">Prova</label>
+                      <label htmlFor="campo-prova" className="text-xs font-black uppercase text-slate-400">Prova</label>
                       <select
+                        id="campo-prova"
                         required
                         disabled={otpSent || loadingHomeExams || availableExams.length === 0}
                         className={`${inputClasses} cursor-pointer`}
@@ -1570,8 +1574,11 @@ const App: React.FC = () => {
                     ) : (
                       <>
                         <div className="space-y-1">
-                          <label className="text-xs font-black uppercase text-slate-400">Código de Verificação (OTP)</label>
+                          <label htmlFor="campo-otp" className="text-xs font-black uppercase text-slate-400">Código de Verificação (OTP)</label>
                           <input
+                            id="campo-otp"
+                            autoComplete="one-time-code"
+                            inputMode="numeric"
                             required
                             type="text"
                             className={inputClasses}
@@ -1611,7 +1618,7 @@ const App: React.FC = () => {
                   className="w-10 h-10 rounded-full bg-[#1B3139] flex items-center justify-center hover:bg-[#FF3621] transition-colors duration-200 group"
                   aria-label="LinkedIn"
                 >
-                  <svg className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                   </svg>
                 </a>
@@ -1622,7 +1629,7 @@ const App: React.FC = () => {
                   className="w-10 h-10 rounded-full bg-[#1B3139] flex items-center justify-center hover:bg-[#FF3621] transition-colors duration-200 group"
                   aria-label="X"
                 >
-                  <svg className="w-5 h-5 text-white group-hover:text-white" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg aria-hidden="true" className="w-5 h-5 text-white group-hover:text-white" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path
                       d="M84.25 30.25H97.0833L72.0833 59.2L100 89.75H79.125L61.6583 69.5667L41.75 89.75H28.9167L55.7917 59.6583L28 30.25H49.25L65.0417 48.2875L84.25 30.25ZM80.625 84.0083H86.25L48.5417 35.6167H42.5417L80.625 84.0083Z"
                       fill="currentColor"
@@ -1636,7 +1643,7 @@ const App: React.FC = () => {
                   className="w-10 h-10 rounded-full bg-[#1B3139] flex items-center justify-center hover:bg-[#FF3621] transition-colors duration-200 group"
                   aria-label="YouTube"
                 >
-                  <svg className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
                   </svg>
                 </a>
@@ -1647,7 +1654,7 @@ const App: React.FC = () => {
                   className="w-10 h-10 rounded-full bg-[#1B3139] flex items-center justify-center hover:bg-[#FF3621] transition-colors duration-200 group"
                   aria-label="Facebook"
                 >
-                  <svg className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                   </svg>
                 </a>
@@ -1658,7 +1665,7 @@ const App: React.FC = () => {
                   className="w-10 h-10 rounded-full bg-[#1B3139] flex items-center justify-center hover:bg-[#FF3621] transition-colors duration-200 group"
                   aria-label="Instagram"
                 >
-                  <svg className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <svg aria-hidden="true" className="w-5 h-5 text-white group-hover:text-white" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
                   </svg>
                 </a>
@@ -1693,7 +1700,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1714,7 +1721,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1736,7 +1743,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1758,7 +1765,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1778,7 +1785,7 @@ const App: React.FC = () => {
                     <span className="group-open:hidden">Ver resposta</span>
                     <span className="hidden group-open:inline-flex items-center gap-1">
                       Fechar
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </span>
@@ -1822,8 +1829,9 @@ const App: React.FC = () => {
               type="button"
               onClick={() => setIsMobileMenuOpen(false)}
               className="text-slate-200 hover:text-white transition-colors"
+              aria-label="Fechar menu"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1914,8 +1922,18 @@ const App: React.FC = () => {
         </div>
       </div>
 
+      <a href="#conteudo" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-white focus:text-[#1B3139] focus:px-4 focus:py-2 focus:rounded focus:font-bold">
+        Pular para o conteúdo
+      </a>
       <nav className="bg-[#1B3139] text-white px-4 md:px-8 py-4 flex items-center justify-between sticky top-0 z-50 shadow-xl border-b border-slate-800">
-        <div className="flex items-center gap-2 md:gap-4 cursor-pointer" onClick={handleLogoClick}>
+        <div
+          className="flex items-center gap-2 md:gap-4 cursor-pointer"
+          role="button"
+          tabIndex={0}
+          aria-label="Ir para a página inicial"
+          onClick={handleLogoClick}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLogoClick(); } }}
+        >
           <div className="w-32 h-8 md:w-64 md:h-16 flex items-center justify-center">
             <img
               src={`${import.meta.env.BASE_URL}databricks-logo.svg`}
@@ -1930,14 +1948,15 @@ const App: React.FC = () => {
             type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="md:hidden text-slate-200 hover:text-white transition-colors"
-            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-label={isMobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={isMobileMenuOpen}
           >
             {isMobileMenuOpen ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             )}
@@ -2008,7 +2027,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </nav>
-      <main className="container mx-auto">
+      <main id="conteudo" tabIndex={-1} className="container mx-auto outline-none">
         {renderContent()}
       </main>
 
@@ -2018,7 +2037,7 @@ const App: React.FC = () => {
             <div className="flex flex-col gap-1">
               <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Q{currentQuestionIndex + 1} DE {questions.length}</span>
               <div className={`flex items-center gap-1 ${isTimeExpired || remainingTime < 5 * 60 * 1000 ? 'text-red-600' : remainingTime < 15 * 60 * 1000 ? 'text-orange-600' : 'text-slate-600'}`}>
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg aria-hidden="true" className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span className={`text-xs font-black ${isTimeExpired ? 'animate-pulse' : ''}`}>
