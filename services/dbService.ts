@@ -1,5 +1,5 @@
 
-import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData } from '../types';
+import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData, SubmitResultPayload } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
@@ -130,6 +130,26 @@ function asDistinctCategoryList(data: unknown): string[] {
   return out;
 }
 
+// Sessão do usuário: token assinado emitido pelo backend quando o OTP é validado
+const SESSION_TOKEN_KEY = 'sessionToken';
+
+function getSessionToken(): string | null {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function clearSessionToken(): void {
+  cache.clear(); // respostas em cache pertencem ao usuário que está saindo
+  try {
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 // Sessão de admin (e-mail + OTP já validado), enviada nas rotas protegidas do backend
 let adminAuth: { email: string; otp: string } | null = null;
 
@@ -140,11 +160,13 @@ function adminHeaders(): Record<string, string> {
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   // `headers` é separado de `...rest` para não sobrescrever o Content-Type ao enviar cabeçalhos extras
   const { headers, ...rest } = options ?? {};
+  const token = getSessionToken();
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...rest,
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(headers as Record<string, string> | undefined),
     },
   });
@@ -152,6 +174,13 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
   const body: unknown = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    // Token expirado/inválido: descarta a sessão para o app voltar à tela de login
+    if (
+      body !== null && typeof body === 'object' && 'error' in body &&
+      (body as { error?: { code?: string } }).error?.code === 'SESSION_INVALID'
+    ) {
+      clearSessionToken();
+    }
     throw new Error(errorMessageFromBody(body, `Request failed (${response.status})`));
   }
 
@@ -159,6 +188,13 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 }
 
 export const dbService = {
+  hasSession: (): boolean => getSessionToken() !== null,
+
+  clearSession: (): void => clearSessionToken(),
+
+  /** Usuário dono da sessão (null se o OTP foi validado mas o cadastro ainda não foi feito). */
+  getCurrentUser: async (): Promise<User | null> => apiRequest<User | null>('/users/me'),
+
   setAdminAuth: (email: string, otp: string): void => {
     adminAuth = { email, otp };
   },
@@ -294,7 +330,8 @@ export const dbService = {
     });
   },
 
-  saveResult: async (result: Omit<ExamResult, 'id'>): Promise<ExamResult> => {
+  /** Envia só as respostas escolhidas; o servidor corrige, calcula a nota e define a data. */
+  saveResult: async (result: SubmitResultPayload): Promise<ExamResult> => {
     return apiRequest<ExamResult>('/results', {
       method: 'POST',
       body: JSON.stringify(result),
@@ -326,11 +363,15 @@ export const dbService = {
     });
   },
 
-  validateOTP: async (email: string, otp: string): Promise<{ valid: boolean; message?: string }> => {
-    return apiRequest<{ valid: boolean; message?: string }>('/otp/validate', {
+  validateOTP: async (email: string, otp: string): Promise<{ valid: boolean; message?: string; token?: string }> => {
+    const result = await apiRequest<{ valid: boolean; message?: string; token?: string }>('/otp/validate', {
       method: 'POST',
       body: JSON.stringify({ email, otp }),
     });
+    if (result.valid && result.token) {
+      localStorage.setItem(SESSION_TOKEN_KEY, result.token);
+    }
+    return result;
   },
 
   addDomain: async (domain: string, requesterEmail: string, company: string): Promise<{ success: boolean; message?: string }> => {

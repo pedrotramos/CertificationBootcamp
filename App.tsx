@@ -24,42 +24,6 @@ const PROHIBITED_DOMAINS = [
   'ig.com.br'
 ];
 
-// Whitelisted emails that bypass domain validation
-const WHITELISTED_EMAILS = [
-  "alcioneroveri@gmail.com",
-  "alinebpamplona@gmail.com",
-  "amandinharodriguescruz@gmail.com",
-  "anagatcavalcante@gmail.com",
-  "ariany.ramos.ultra@gmail.com",
-  "brunabatistavelloso@gmail.com",
-  "carool1307@gmail.com",
-  "daiane.mpereira@gmail.com",
-  "drcdoimo@gmail.com",
-  "ericaestat@gmail.com",
-  "ems.erikamedeiros@gmail.com",
-  "estela.polverini@gmail.com",
-  "ethelbeluzzi@gmail.com",
-  "fdiasguima@gmail.com",
-  "gabibraga1014@gmail.com",
-  "wallgiu@gmail.com",
-  "greyce.cos.sil@gmail.com",
-  "huaragois@gmail.com",
-  "jaque.orizzo@gmail.com",
-  "jessica.jc.2010@gmail.com",
-  "juliafernand3s@gmail.com",
-  "leila.sousa@ambevtech.com.br",
-  "lucianawlr@gmail.com",
-  "maiyuri.martins.17@gmail.com",
-  "manuela.castilla@gmail.com",
-  "marcela.bsbcel@gmail.com",
-  "thaisal.estudo@gmail.com",
-  "raquelcldba@gmail.com",
-  "thaisleticiaamaral@gmail.com",
-  "thalitasisnandes1@gmail.com",
-  "vanessaorsigordo@gmail.com",
-  "leticiaflores.pinho@gmail.com"
-];
-
 // Helper functions to manage exam progress in localStorage
 const EXAM_PROGRESS_KEY = 'examProgress';
 const SELECTED_EXAM_KEY = 'selectedExam';
@@ -209,8 +173,9 @@ const App: React.FC = () => {
     loadExams();
 
     // Check authentication status
-    const validatedEmail = localStorage.getItem('validatedEmail');
-    setIsAuthenticated(!!validatedEmail);
+    // 'validatedEmail' era a sessão antiga (um e-mail em texto puro, sem verificação): descarta
+    localStorage.removeItem('validatedEmail');
+    setIsAuthenticated(dbService.hasSession());
 
     // Check for existing session when app loads
     checkExistingSession();
@@ -397,10 +362,9 @@ const App: React.FC = () => {
 
   const checkExistingSession = async () => {
     try {
-      const validatedEmail = localStorage.getItem('validatedEmail');
-      if (validatedEmail) {
-        // User has validated OTP before - check their status
-        const existingUser = await dbService.getUserByEmail(validatedEmail);
+      if (dbService.hasSession()) {
+        // User has validated OTP before - the server resolves the user from the session token
+        const existingUser = await dbService.getCurrentUser();
         if (existingUser) {
           setUser(existingUser);
           setIsAuthenticated(true);
@@ -438,7 +402,7 @@ const App: React.FC = () => {
           return true; // Session found and restored
         } else {
           // User not found - clear invalid session
-          localStorage.removeItem('validatedEmail');
+          dbService.clearSession();
           setIsAuthenticated(false);
         }
       }
@@ -446,7 +410,7 @@ const App: React.FC = () => {
     } catch (err) {
       console.error('Error checking existing session:', err);
       // Clear invalid session
-      localStorage.removeItem('validatedEmail');
+      dbService.clearSession();
       setIsAuthenticated(false);
       return false;
     }
@@ -508,7 +472,7 @@ const App: React.FC = () => {
 
   const handleLogout = () => {
     // Clear session from localStorage
-    localStorage.removeItem('validatedEmail');
+    dbService.clearSession();
     localStorage.removeItem(SELECTED_EXAM_KEY);
 
     // Reset all user-related state
@@ -545,11 +509,6 @@ const App: React.FC = () => {
   const validateEmail = (email: string, isWhitelisted: boolean): { isValid: boolean; message: string | null } => {
     const emailLower = email.toLowerCase().trim();
     if (!emailLower) return { isValid: false, message: 'O e-mail é obrigatório.' };
-
-    // Check if email is in the whitelist - if so, bypass all domain validation
-    if (WHITELISTED_EMAILS.includes(emailLower)) {
-      return { isValid: true, message: null };
-    }
 
     const domain = emailLower.split('@')[1];
     if (PROHIBITED_DOMAINS.includes(domain)) {
@@ -614,16 +573,7 @@ const App: React.FC = () => {
         return;
       }
 
-      const emailLower = formData.email.toLowerCase().trim();
-      const isEmailWhitelisted = WHITELISTED_EMAILS.includes(emailLower);
-
-      // Skip domain check for whitelisted emails
-      let domainCheck: { whitelisted: boolean; company?: string };
-      if (isEmailWhitelisted) {
-        domainCheck = { whitelisted: true };
-      } else {
-        domainCheck = await dbService.checkDomain(formData.email);
-      }
+      const domainCheck = await dbService.checkDomain(formData.email);
 
       // Store company from domain check (will be used when saving user)
       if (domainCheck.company) {
@@ -680,8 +630,7 @@ const App: React.FC = () => {
     setIsSubmitting(true);
     setErrorMsg(null);
     try {
-      // Store validated email in localStorage for session persistence
-      localStorage.setItem('validatedEmail', formData.email);
+      // A sessão (token assinado) já foi guardada por dbService.validateOTP
       setIsAuthenticated(true);
 
       // Check if user already exists
@@ -786,40 +735,43 @@ const App: React.FC = () => {
     if (!user) return;
     setIsSubmitting(true);
 
-    const examAnswers = questions.map(q => ({
-      questionId: q._id,
-      selectedOptionId: answers[q._id] || '',
-      isCorrect: answers[q._id] === q.correctOptionId,
-      category: q.category
-    }));
-
-    const score = examAnswers.filter(a => a.isCorrect).length;
-
     const examToUse = selectedExam || localStorage.getItem(SELECTED_EXAM_KEY) || '';
 
-    const result = {
-      userId: user._id,
-      timestamp: new Date(),
-      score,
-      totalQuestions: questions.length,
-      exam: examToUse,
-      answers: examAnswers
-    };
+    try {
+      // O servidor corrige a prova: aqui vão só as respostas escolhidas
+      const savedResult = await dbService.saveResult({
+        userId: user._id?.toString() || '',
+        exam: examToUse,
+        answers: questions.map(q => ({
+          questionId: q._id?.toString() || '',
+          selectedOptionId: answers[q._id?.toString() || ''] || ''
+        }))
+      });
+      await dbService.completeExamSession(user._id?.toString() || '', examToUse).catch(error =>
+        console.error('Failed to track exam session completion:', error)
+      );
 
-    const savedResult = await dbService.saveResult(result);
-    await dbService.completeExamSession(user._id?.toString() || '', examToUse).catch(error =>
-      console.error('Failed to track exam session completion:', error)
-    );
-    setFinalResult(savedResult);
-    setHasResults(true);
-    clearExamProgress(); // Clear progress after exam is completed
-    clearExamTimer(); // Clear timer after exam is completed
-    setExamTimer(null);
-    examTimerRef.current = null;
-    setRemainingTime(EXAM_DURATION_MS);
-    setIsTimeExpired(false);
-    navigate('/results');
-    setIsSubmitting(false);
+      // Só agora o servidor libera o gabarito e as explicações para a revisão
+      const reviewQuestions = await dbService.getAnsweredQuestions(user._id?.toString() || '', examToUse);
+      const position = new Map(savedResult.answers.map((answer, index) => [answer.questionId, index]));
+      reviewQuestions.sort((a, b) => (position.get(a._id?.toString() || '') ?? 0) - (position.get(b._id?.toString() || '') ?? 0));
+      setQuestions(reviewQuestions);
+
+      setFinalResult(savedResult);
+      setHasResults(true);
+      clearExamProgress(); // Clear progress after exam is completed
+      clearExamTimer(); // Clear timer after exam is completed
+      setExamTimer(null);
+      examTimerRef.current = null;
+      setRemainingTime(EXAM_DURATION_MS);
+      setIsTimeExpired(false);
+      navigate('/results');
+    } catch (err) {
+      console.error('Error finishing exam:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível enviar a prova. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const inputClasses = "w-full px-4 py-3 rounded bg-[#1B3139] text-white border border-slate-700 focus:border-[#FF3621] focus:ring-1 focus:ring-[#FF3621] outline-none transition-all placeholder-slate-400";
