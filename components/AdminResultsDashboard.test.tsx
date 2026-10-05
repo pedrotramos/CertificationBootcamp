@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import AdminResultsDashboard from './AdminResultsDashboard';
 import { dbService } from '../services/dbService';
 import { AdminResultAttempt } from '../types';
@@ -71,5 +71,14 @@ describe('AdminResultsDashboard', () => {
     mockarResposta([tentativa({ categoryScores: undefined as unknown as [] })]);
     render(<AdminResultsDashboard email="admin@databricks.com" otp="123456" />);
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+  });
+
+  it('mostra a tentativa e filtra só a primeira de cada usuário', async () => {
+    mockarResposta([tentativa({ id: '1', attempt: 1 }), tentativa({ id: '2', attempt: 2, timestamp: '2026-09-20T12:00:00Z' })]);
+    render(<AdminResultsDashboard email="admin@databricks.com" otp="123456" />);
+    expect(await screen.findByText('2 de 2 tentativas exibidas')).toBeTruthy();
+    expect(screen.getByText('Tentativa', { selector: 'th' })).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Só a primeira tentativa'));
+    expect(await screen.findByText('1 de 2 tentativas exibidas')).toBeTruthy();
   });
 });

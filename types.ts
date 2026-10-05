@@ -79,6 +79,8 @@ export interface AdminResultAttempt {
   company: string;
   exam: string;
   timestamp: string;
+  /** número da tentativa do usuário nesta prova (ausente em respostas de backends antigos: conta como 1) */
+  attempt?: number;
   score: number;
   totalQuestions: number;
   percentage: number;
