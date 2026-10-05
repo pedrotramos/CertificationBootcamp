@@ -13,6 +13,7 @@ import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
 import type { ExamClock, ExamStatusInfo } from './types';
 import ConfirmDialog from './components/ConfirmDialog';
+import AttemptsEvolution from './components/AttemptsEvolution';
 import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, formatTimeUntil, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
 
 const PROHIBITED_DOMAINS = [
@@ -160,6 +161,7 @@ const App: React.FC = () => {
   const [examStatus, setExamStatus] = useState<ExamStatus>('new');
   const [examStatusInfo, setExamStatusInfo] = useState<ExamStatusInfo | null>(null);
   const [attemptHistory, setAttemptHistory] = useState<ExamResult[]>([]);
+  const [loadingAttemptId, setLoadingAttemptId] = useState<string | null>(null);
   // Só mostra "verificando sessão" se existe um token guardado: visitante novo vê o formulário na hora
   const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => dbService.hasSession());
   // Ação adiada enquanto o usuário confirma que quer sair da prova em andamento
@@ -558,15 +560,62 @@ const App: React.FC = () => {
     }
   };
 
+  // Botões da home para quem já enviou a prova: ver resultados ou começar outra tentativa
+  const handleOpenResults = async () => {
+    if (!user || !selectedExam) return;
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    try {
+      localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
+      await openLatestResult(user._id.toString(), selectedExam);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível abrir os resultados.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartNewAttempt = () => {
+    if (!selectedExam) return;
+    localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
+    resetForNewAttempt();
+    navigate('/exam');
+  };
+
   // Carrega o resultado mais recente (com as questões revisadas) e abre a tela de resultados
   const openLatestResult = async (userId: string, exam: string) => {
     const results = await dbService.getUserResults(userId, exam);
     if (results.length === 0) return;
     const reviewQuestions = await dbService.getAnsweredQuestions(userId, exam);
     setHasResults(true);
-    setQuestions(reviewQuestions);
+    setQuestions(orderByAnswers(reviewQuestions, results[0]));
     setFinalResult(results[0]);
     navigate('/results');
+  };
+
+  // Questões revisadas na ordem em que foram respondidas naquela tentativa
+  const orderByAnswers = (reviewQuestions: Question[], result: ExamResult): Question[] => {
+    const position = new Map(result.answers.map((answer, index) => [answer.questionId, index]));
+    return [...reviewQuestions].sort((a, b) => (position.get(a._id?.toString() || '') ?? 0) - (position.get(b._id?.toString() || '') ?? 0));
+  };
+
+  // Abre o relatório de uma tentativa anterior na tela de resultados
+  const selectAttempt = async (result: ExamResult) => {
+    if (!user) return;
+    const resultId = result._id?.toString();
+    if (!resultId || resultId === finalResult?._id?.toString()) return;
+    setLoadingAttemptId(resultId);
+    try {
+      const reviewQuestions = await dbService.getAnsweredQuestions(user._id.toString(), result.exam, resultId);
+      setQuestions(orderByAnswers(reviewQuestions, result));
+      setFinalResult(result);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Error loading attempt review:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível abrir esta tentativa.');
+    } finally {
+      setLoadingAttemptId(null);
+    }
   };
 
   // Começa uma nova tentativa: descarta o que sobrou da anterior (respostas, progresso e cronômetro locais)
@@ -1105,10 +1154,16 @@ const App: React.FC = () => {
               O tempo da prova se esgotou antes do envio, então as respostas não foram aproveitadas.
             </div>
           )}
+          <AttemptsEvolution
+            results={attemptHistory.length > 0 ? attemptHistory : [finalResult]}
+            selectedId={finalResult._id?.toString()}
+            onSelect={selectAttempt}
+            loadingId={loadingAttemptId}
+          />
           <Card className="overflow-hidden border-t-8 border-t-[#1B3139] shadow-2xl bg-white">
             <div className="p-10">
               <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-black text-[#1B3139] uppercase tracking-tighter">Relatório de Performance</h2>
+                <h2 className="text-3xl font-black text-[#1B3139] uppercase tracking-tighter">Relatório de Performance{finalResult.attempt ? ` · Tentativa ${finalResult.attempt}` : ''}</h2>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-sm font-bold text-slate-500">{user?.firstName} {user?.lastName}</span>
                   <span className="w-1 h-1 bg-slate-300 rounded-full" />
@@ -1209,25 +1264,13 @@ const App: React.FC = () => {
                     O intervalo entre tentativas já passou: você pode refazer esta prova com um novo conjunto de questões.
                   </p>
                 )}
-                {attemptHistory.length > 1 && (
-                  <div className="max-w-md mx-auto mb-8 text-left">
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Histórico de tentativas</h3>
-                    <ul className="divide-y divide-slate-100 text-sm text-slate-700">
-                      {attemptHistory.map((item, index) => (
-                        <li key={item._id?.toString() ?? index} className="flex justify-between py-2">
-                          <span>Tentativa {item.attempt ?? attemptHistory.length - index}</span>
-                          <span className="font-bold">
-                            {item.totalQuestions ? Math.round((item.score / item.totalQuestions) * 100) : 0}%
-                            <span className="ml-3 font-normal text-slate-500">{new Date(item.timestamp).toLocaleDateString('pt-BR')}</span>
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
                 <div className="flex flex-col sm:flex-row justify-center gap-3">
-                  {examStatusInfo?.state === 'can_retake' && (
-                    <Button onClick={() => { resetForNewAttempt(); navigate('/exam'); }} className="px-12">
+                  {(examStatusInfo?.state === 'can_retake' || examStatusInfo?.state === 'cooldown') && (
+                    <Button
+                      onClick={() => { resetForNewAttempt(); navigate('/exam'); }}
+                      disabled={examStatusInfo.state === 'cooldown'}
+                      className="px-12"
+                    >
                       Fazer Nova Tentativa
                     </Button>
                   )}
@@ -1621,9 +1664,38 @@ const App: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
-                      {EXAM_BUTTON_LABEL[examStatus]}
-                    </Button>
+                    {examStatus === 'cooldown' || examStatus === 'can_retake' ? (
+                      <div className="space-y-2 mt-4">
+                        <Button
+                          type="button"
+                          className="w-full py-4"
+                          variant={examStatus === 'cooldown' ? 'primary' : 'outline'}
+                          isLoading={isSubmitting}
+                          onClick={handleOpenResults}
+                        >
+                          {EXAM_BUTTON_LABEL.cooldown}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="w-full py-4"
+                          variant={examStatus === 'can_retake' ? 'primary' : 'outline'}
+                          disabled={examStatus === 'cooldown' || isSubmitting}
+                          aria-describedby="nova-tentativa-dica"
+                          onClick={handleStartNewAttempt}
+                        >
+                          {EXAM_BUTTON_LABEL.can_retake}
+                        </Button>
+                        <p id="nova-tentativa-dica" className="text-xs text-slate-500 text-center">
+                          {examStatus === 'cooldown' && examStatusInfo?.availableAt
+                            ? `Nova tentativa disponível em ${formatTimeUntil(examStatusInfo.availableAt)}.`
+                            : 'Nova tentativa liberada: você receberá um novo conjunto de questões.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
+                        {EXAM_BUTTON_LABEL[examStatus]}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <>

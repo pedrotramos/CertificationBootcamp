@@ -365,14 +365,16 @@ export const dbService = {
     cache.delete('getExams');
   },
 
-  getAnsweredQuestions: async (userId: string, exam: string): Promise<Question[]> => {
-    const cacheKey = `getAnsweredQuestions:${userId}:${exam}`;
+  /** Questões (com gabarito) de uma tentativa enviada; sem `resultId`, a mais recente. */
+  getAnsweredQuestions: async (userId: string, exam: string, resultId?: string): Promise<Question[]> => {
+    const cacheKey = `getAnsweredQuestions:${userId}:${exam}:${resultId ?? 'latest'}`;
     const cached = getCachedData<Question[]>(cacheKey);
     if (cached !== null) {
       return cached;
     }
 
-    const endpoint = `/results/user/${encodeURIComponent(userId)}/questions?exam=${encodeURIComponent(exam)}`;
+    const resultQuery = resultId ? `&resultId=${encodeURIComponent(resultId)}` : '';
+    const endpoint = `/results/user/${encodeURIComponent(userId)}/questions?exam=${encodeURIComponent(exam)}${resultQuery}`;
     const data = await apiRequest<Question[]>(endpoint);
     setCachedData(cacheKey, data);
     return data;
