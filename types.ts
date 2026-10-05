@@ -45,6 +45,8 @@ export interface ExamResult {
   exam: string;
   /** true quando o servidor encerrou a tentativa por tempo esgotado (as respostas não foram aproveitadas) */
   expired?: boolean;
+  /** número da tentativa do usuário nesta prova (1, 2, …) */
+  attempt?: number;
   answers: {
     questionId: string;
     selectedOptionId: string;
@@ -77,6 +79,8 @@ export interface AdminResultAttempt {
   company: string;
   exam: string;
   timestamp: string;
+  /** número da tentativa do usuário nesta prova (ausente em respostas de backends antigos: conta como 1) */
+  attempt?: number;
   score: number;
   totalQuestions: number;
   percentage: number;
@@ -97,3 +101,14 @@ export type AppState = 'welcome' | 'register' | 'exam' | 'results' | 'contact' |
  * Each entry represents the user's answer choice for a specific question.
  */
 export type Answers = { [questionId: string]: string };
+
+/** Situação da prova para o usuário, segundo GET /api/exam-status. */
+export type ExamState = 'new' | 'in_progress' | 'cooldown' | 'can_retake';
+
+export interface ExamStatusInfo {
+  state: ExamState;
+  attempts: number;
+  lastResult: { id: string; score: number; totalQuestions: number; timestamp: string; attempt: number } | null;
+  /** ISO 8601 (UTC): quando a próxima tentativa é liberada; null se não há envio anterior ou há prova em andamento */
+  availableAt: string | null;
+}

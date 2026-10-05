@@ -80,6 +80,8 @@ const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = (
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [status, setStatus] = useState<'all' | 'passed' | 'failed'>('all');
+  // Com refações, as métricas de aprovação podem considerar só a primeira tentativa de cada usuário
+  const [firstOnly, setFirstOnly] = useState(false);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<'date' | 'score'>('date');
   const [tableSearch, setTableSearch] = useState('');
@@ -114,10 +116,11 @@ const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = (
     const userMatch = !user || `${a.name} ${a.email}`.toLocaleLowerCase().includes(user.toLocaleLowerCase());
     return companyMatch && examMatch && userMatch
       && (!from || day >= from) && (!to || day <= to)
-      && (status === 'all' || (status === 'passed' ? a.passed : !a.passed));
-  }), [attempts, company, exam, user, from, to, status]);
+      && (status === 'all' || (status === 'passed' ? a.passed : !a.passed))
+      && (!firstOnly || (a.attempt ?? 1) === 1);
+  }), [attempts, company, exam, user, from, to, status, firstOnly]);
 
-  useEffect(() => { setPage(1); }, [company, exam, user, from, to, status, sort, tableSearch]);
+  useEffect(() => { setPage(1); }, [company, exam, user, from, to, status, firstOnly, sort, tableSearch]);
 
   const metrics = useMemo(() => {
     const users = new Set(filtered.map(a => a.userId));
@@ -179,8 +182,8 @@ const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = (
   const sorted = useMemo(() => [...tableFiltered].sort((a, b) => sort === 'score' ? b.percentage - a.percentage : b.timestamp.localeCompare(a.timestamp)), [tableFiltered, sort]);
   const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const rows = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const clear = () => { setCompany(''); setExam(''); setUser(''); setFrom(''); setTo(''); setStatus('all'); };
-  const activeFilters = [company && { label: 'Empresa', value: company, clear: () => setCompany('') }, exam && { label: 'Exame', value: exam, clear: () => setExam('') }, user && { label: 'Usuário', value: user, clear: () => setUser('') }, from && { label: 'Desde', value: new Date(`${from}T00:00:00`).toLocaleDateString('pt-BR'), clear: () => setFrom('') }, to && { label: 'Até', value: new Date(`${to}T00:00:00`).toLocaleDateString('pt-BR'), clear: () => setTo('') }, status !== 'all' && { label: 'Status', value: status === 'passed' ? 'Aprovado' : 'Reprovado', clear: () => setStatus('all') }].filter(Boolean) as { label: string; value: string; clear: () => void }[];
+  const clear = () => { setCompany(''); setExam(''); setUser(''); setFrom(''); setTo(''); setStatus('all'); setFirstOnly(false); };
+  const activeFilters = [company && { label: 'Empresa', value: company, clear: () => setCompany('') }, exam && { label: 'Exame', value: exam, clear: () => setExam('') }, user && { label: 'Usuário', value: user, clear: () => setUser('') }, from && { label: 'Desde', value: new Date(`${from}T00:00:00`).toLocaleDateString('pt-BR'), clear: () => setFrom('') }, to && { label: 'Até', value: new Date(`${to}T00:00:00`).toLocaleDateString('pt-BR'), clear: () => setTo('') }, status !== 'all' && { label: 'Status', value: status === 'passed' ? 'Aprovado' : 'Reprovado', clear: () => setStatus('all') }, firstOnly && { label: 'Tentativa', value: 'Só a primeira', clear: () => setFirstOnly(false) }].filter(Boolean) as { label: string; value: string; clear: () => void }[];
 
   if (loading) return <div className="space-y-4" aria-label="Carregando dashboard">{[1,2,3].map(i => <div key={i} className="h-24 animate-pulse rounded-lg bg-slate-100" />)}</div>;
   if (error) return <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-sm text-red-700"><p>{error}</p><button onClick={() => void load()} className="mt-3 font-black uppercase underline">Tentar novamente</button></div>;
@@ -198,6 +201,7 @@ const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = (
         <SearchFilter id="user" label="Usuário" placeholder="Buscar nome ou e-mail" value={user} options={options.users.map(v => v.name)} onChange={setUser} />
         <label className="space-y-1"><span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Data inicial</span><input type="date" value={from} onChange={e => setFrom(e.target.value)} className="w-full rounded border border-slate-300 p-2 text-xs" /></label>
         <label className="space-y-1"><span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Data final</span><input type="date" value={to} onChange={e => setTo(e.target.value)} className="w-full rounded border border-slate-300 p-2 text-xs" /></label>
+        <label className="flex h-[34px] items-center gap-2 text-[10px] font-black uppercase text-slate-600"><input type="checkbox" checked={firstOnly} onChange={e => setFirstOnly(e.target.checked)} />Só a primeira tentativa</label>
         <button onClick={clear} disabled={!activeFilters.length} className="h-[34px] rounded bg-slate-100 p-2 text-[10px] font-black uppercase text-slate-600 hover:bg-slate-200 disabled:opacity-40">Limpar filtros</button>
       </div>
       {activeFilters.length > 0 && <div className="mt-4 flex flex-wrap gap-2" aria-label="Filtros aplicados">{activeFilters.map(filter => <button key={filter.label} onClick={filter.clear} title={`Remover filtro ${filter.label}`} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-[10px] font-bold text-blue-800">{filter.label}: {filter.value} <span aria-hidden>×</span></button>)}</div>}
@@ -232,7 +236,7 @@ const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = (
 
       <Panel title="Resultados por usuário" subtitle="Detalhe pesquisável pelos filtros acima; ordenação e paginação local">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3"><label className="space-y-1"><span className="block text-[9px] font-black uppercase text-slate-500">Buscar na tabela</span><input value={tableSearch} onChange={e => setTableSearch(e.target.value)} placeholder="Nome ou empresa" className="rounded border border-slate-300 p-2 text-xs" /></label><div className="flex items-center gap-3"><span className="text-[10px] text-slate-500">Página {page} de {pageCount}</span><select aria-label="Ordenar resultados" value={sort} onChange={e => setSort(e.target.value as 'date'|'score')} className="rounded border border-slate-300 p-2 text-xs"><option value="date">Mais recentes</option><option value="score">Maior nota</option></select></div></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-wider text-slate-500">{['Nome','E-mail','Empresa','Exame','Nota','Status','Data'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{rows.map(a => <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="p-2 font-bold">{a.name}</td><td className="p-2">{a.email || '—'}</td><td className="p-2">{a.company}</td><td className="p-2">{a.exam}</td><td className={`p-2 font-black ${a.passed ? 'text-green-600':'text-[#FF3621]'}`}>{pct(a.percentage)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${a.passed ? 'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}>{a.passed ? 'Aprovado':'Reprovado'}</span></td><td className="p-2">{formatDate(a.timestamp)}</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-wider text-slate-500">{['Nome','E-mail','Empresa','Exame','Tentativa','Nota','Status','Data'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{rows.map(a => <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="p-2 font-bold">{a.name}</td><td className="p-2">{a.email || '—'}</td><td className="p-2">{a.company}</td><td className="p-2">{a.exam}</td><td className="p-2">{a.attempt ?? 1}</td><td className={`p-2 font-black ${a.passed ? 'text-green-600':'text-[#FF3621]'}`}>{pct(a.percentage)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${a.passed ? 'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}>{a.passed ? 'Aprovado':'Reprovado'}</span></td><td className="p-2">{formatDate(a.timestamp)}</td></tr>)}</tbody></table></div>
         <div className="mt-4 flex justify-end gap-2"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="rounded border px-3 py-2 text-[10px] font-black uppercase disabled:opacity-30">Anterior</button><button disabled={page === pageCount} onClick={() => setPage(p => p + 1)} className="rounded border px-3 py-2 text-[10px] font-black uppercase disabled:opacity-30">Próxima</button></div>
       </Panel>
     </>}

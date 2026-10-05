@@ -11,9 +11,10 @@ import QuestionView from './components/QuestionView';
 import ResultsChart from './components/ResultsChart';
 import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
-import type { ExamClock } from './types';
+import type { ExamClock, ExamStatusInfo } from './types';
 import ConfirmDialog from './components/ConfirmDialog';
-import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
+import AttemptsEvolution from './components/AttemptsEvolution';
+import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, formatTimeUntil, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
 
 const PROHIBITED_DOMAINS = [
   'gmail.com',
@@ -158,6 +159,9 @@ const App: React.FC = () => {
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [examStatus, setExamStatus] = useState<ExamStatus>('new');
+  const [examStatusInfo, setExamStatusInfo] = useState<ExamStatusInfo | null>(null);
+  const [attemptHistory, setAttemptHistory] = useState<ExamResult[]>([]);
+  const [loadingAttemptId, setLoadingAttemptId] = useState<string | null>(null);
   // Só mostra "verificando sessão" se existe um token guardado: visitante novo vê o formulário na hora
   const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => dbService.hasSession());
   // Ação adiada enquanto o usuário confirma que quer sair da prova em andamento
@@ -245,22 +249,32 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [location.pathname, isTimeExpired]);
 
-  // Rótulo do botão da home: iniciar, continuar (prova pausada) ou conferir resultados
+  // Situação da prova (nova, em andamento, em intervalo ou liberada para nova tentativa): rótulo do botão da home
+  // e aviso de próxima tentativa na tela de resultados. Vem do servidor; sem resposta, vale o cronômetro local.
   useEffect(() => {
-    if (location.pathname !== '/' || !isAuthenticated || !user || !selectedExam) {
+    const onHomeOrResults = location.pathname === '/' || location.pathname === '/results';
+    if (!onHomeOrResults || !isAuthenticated || !user || !selectedExam) {
       setExamStatus('new');
+      setExamStatusInfo(null);
       return;
     }
     const userId = user._id?.toString() || '';
     let cancelled = false;
-    setExamStatus(resolveExamStatus(false, hasPausedExam(userId, selectedExam)));
-    dbService.getUserResults(userId, selectedExam)
-      .then(results => {
-        if (!cancelled) setExamStatus(resolveExamStatus(results.length > 0, hasPausedExam(userId, selectedExam)));
+    setExamStatus(resolveExamStatus(null, hasPausedExam(userId, selectedExam)));
+    dbService.getExamStatus(selectedExam)
+      .then(info => {
+        if (cancelled) return;
+        setExamStatusInfo(info);
+        setExamStatus(resolveExamStatus(info.state, false));
       })
       .catch(error => console.error('Failed to check exam status:', error));
+    if (location.pathname === '/results') {
+      dbService.getUserResults(userId, selectedExam)
+        .then(results => { if (!cancelled) setAttemptHistory(results); })
+        .catch(error => console.error('Failed to load attempt history:', error));
+    }
     return () => { cancelled = true; };
-  }, [location.pathname, isAuthenticated, user, selectedExam]);
+  }, [location.pathname, isAuthenticated, user, selectedExam, finalResult]);
 
   // Load questions when entering exam page
   useEffect(() => {
@@ -280,6 +294,11 @@ const App: React.FC = () => {
           const q = await dbService.getQuestions(examToUse);
           setQuestions(q);
         } catch (err) {
+          if (err instanceof ApiError && err.code === 'COOLDOWN_ACTIVE') {
+            setErrorMsg(`Você já concluiu esta prova. Nova tentativa disponível em ${err.availableAt ? formatTimeUntil(err.availableAt) : 'alguns dias'}.`);
+            navigate('/');
+            return;
+          }
           console.error('Error loading questions:', err);
           setQuestionsLoadFailed(true);
         }
@@ -501,18 +520,13 @@ const App: React.FC = () => {
           const savedExam = localStorage.getItem(SELECTED_EXAM_KEY);
           if (savedExam) {
             setSelectedExam(savedExam);
-            const results = await dbService.getUserResults(existingUser._id.toString(), savedExam);
-            if (results.length > 0) {
-              // User has taken the test - go to results
-              setHasResults(true);
-              const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), savedExam);
-              setQuestions(questions);
-              setFinalResult(results[0]);
-              navigate('/results');
+            const status = await dbService.getExamStatus(savedExam);
+            if (status.state === 'cooldown') {
+              // Enviou há pouco: mostra o resultado
+              await openLatestResult(existingUser._id.toString(), savedExam);
             } else {
-              // User hasn't taken the test - stay on home page to select exam
-              setHasResults(false);
-              // Don't navigate to exam automatically, user needs to select an exam first
+              // Sem tentativa, em andamento ou liberada para nova tentativa: fica na home para escolher a prova
+              setHasResults(status.state === 'can_retake');
             }
           } else {
             // No saved exam - user needs to select an exam first
@@ -544,6 +558,78 @@ const App: React.FC = () => {
     } else {
       action();
     }
+  };
+
+  // Botões da home para quem já enviou a prova: ver resultados ou começar outra tentativa
+  const handleOpenResults = async () => {
+    if (!user || !selectedExam) return;
+    setErrorMsg(null);
+    setIsSubmitting(true);
+    try {
+      localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
+      await openLatestResult(user._id.toString(), selectedExam);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível abrir os resultados.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStartNewAttempt = () => {
+    if (!selectedExam) return;
+    localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
+    resetForNewAttempt();
+    navigate('/exam');
+  };
+
+  // Carrega o resultado mais recente (com as questões revisadas) e abre a tela de resultados
+  const openLatestResult = async (userId: string, exam: string) => {
+    const results = await dbService.getUserResults(userId, exam);
+    if (results.length === 0) return;
+    const reviewQuestions = await dbService.getAnsweredQuestions(userId, exam);
+    setHasResults(true);
+    setQuestions(orderByAnswers(reviewQuestions, results[0]));
+    setFinalResult(results[0]);
+    navigate('/results');
+  };
+
+  // Questões revisadas na ordem em que foram respondidas naquela tentativa
+  const orderByAnswers = (reviewQuestions: Question[], result: ExamResult): Question[] => {
+    const position = new Map(result.answers.map((answer, index) => [answer.questionId, index]));
+    return [...reviewQuestions].sort((a, b) => (position.get(a._id?.toString() || '') ?? 0) - (position.get(b._id?.toString() || '') ?? 0));
+  };
+
+  // Abre o relatório de uma tentativa anterior na tela de resultados
+  const selectAttempt = async (result: ExamResult) => {
+    if (!user) return;
+    const resultId = result._id?.toString();
+    if (!resultId || resultId === finalResult?._id?.toString()) return;
+    setLoadingAttemptId(resultId);
+    try {
+      const reviewQuestions = await dbService.getAnsweredQuestions(user._id.toString(), result.exam, resultId);
+      setQuestions(orderByAnswers(reviewQuestions, result));
+      setFinalResult(result);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      console.error('Error loading attempt review:', err);
+      setErrorMsg(err instanceof Error ? err.message : 'Não foi possível abrir esta tentativa.');
+    } finally {
+      setLoadingAttemptId(null);
+    }
+  };
+
+  // Começa uma nova tentativa: descarta o que sobrou da anterior (respostas, progresso e cronômetro locais)
+  const resetForNewAttempt = () => {
+    clearExamProgress();
+    clearExamTimer();
+    setExamTimer(null);
+    examTimerRef.current = null;
+    setAnswers({});
+    setCurrentQuestionIndex(0);
+    setQuestions([]);
+    setFinalResult(null);
+    setRemainingTime(EXAM_DURATION_MS);
+    setIsTimeExpired(false);
   };
 
   const handleLogoClick = () => {
@@ -663,22 +749,19 @@ const App: React.FC = () => {
       }
       // Save selected exam to localStorage
       localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
-      // Check if user has results for this exam
+      // Em intervalo: mostra o resultado; prova nova, em andamento ou liberada para nova tentativa: vai para a prova
       try {
-        const results = await dbService.getUserResults(user._id.toString(), selectedExam);
-        if (results.length > 0) {
-          setHasResults(true);
-          const questions = await dbService.getAnsweredQuestions(user._id.toString(), selectedExam);
-          setQuestions(questions);
-          setFinalResult(results[0]);
-          navigate('/results');
+        const status = await dbService.getExamStatus(selectedExam);
+        if (status.state === 'cooldown') {
+          await openLatestResult(user._id.toString(), selectedExam);
         } else {
-          setHasResults(false);
+          setHasResults(status.state === 'can_retake');
+          if (status.state === 'can_retake') resetForNewAttempt();
           navigate('/exam');
         }
       } catch (err) {
-        console.error('Error checking results:', err);
-        navigate('/exam');
+        console.error('Error checking exam status:', err);
+        setErrorMsg(err instanceof Error ? err.message : 'Não foi possível verificar a prova. Tente novamente.');
       }
       return;
     }
@@ -770,22 +853,17 @@ const App: React.FC = () => {
           setSelectedExam(examToUse);
         }
 
-        const results = await dbService.getUserResults(existingUser._id.toString(), examToUse);
+        const status = await dbService.getExamStatus(examToUse);
 
-        if (results.length > 0) {
-          // User has already taken the test - show results page
-          setHasResults(true);
-          // Fetch answered questions for the selected exam
-          const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), examToUse);
-          setQuestions(questions);
+        if (status.state === 'cooldown') {
+          // Enviou há pouco - mostra o resultado
           setUser(existingUser);
-          setFinalResult(results[0]);
+          await openLatestResult(existingUser._id.toString(), examToUse);
           setIsSubmitting(false);
-          navigate('/results');
           return;
-        } else {
-          setHasResults(false);
         }
+        if (status.state === 'can_retake') resetForNewAttempt();
+        setHasResults(status.state === 'can_retake');
 
         // User exists but hasn't taken the test - proceed to exam
         if (!selectedExam) {
@@ -1076,10 +1154,16 @@ const App: React.FC = () => {
               O tempo da prova se esgotou antes do envio, então as respostas não foram aproveitadas.
             </div>
           )}
+          <AttemptsEvolution
+            results={attemptHistory.length > 0 ? attemptHistory : [finalResult]}
+            selectedId={finalResult._id?.toString()}
+            onSelect={selectAttempt}
+            loadingId={loadingAttemptId}
+          />
           <Card className="overflow-hidden border-t-8 border-t-[#1B3139] shadow-2xl bg-white">
             <div className="p-10">
               <div className="text-center space-y-2 mb-8">
-                <h2 className="text-3xl font-black text-[#1B3139] uppercase tracking-tighter">Relatório de Performance</h2>
+                <h2 className="text-3xl font-black text-[#1B3139] uppercase tracking-tighter">Relatório de Performance{finalResult.attempt ? ` · Tentativa ${finalResult.attempt}` : ''}</h2>
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-sm font-bold text-slate-500">{user?.firstName} {user?.lastName}</span>
                   <span className="w-1 h-1 bg-slate-300 rounded-full" />
@@ -1167,8 +1251,29 @@ const App: React.FC = () => {
               })()}
 
               <div className="mt-12 pt-8 border-t border-slate-50 w-full text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Registro de Tentativa Única Concluído</p>
-                <div className="flex justify-center">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-4">
+                  Tentativa {finalResult.attempt ?? (attemptHistory.length || 1)} concluída
+                </p>
+                {examStatusInfo?.state === 'cooldown' && examStatusInfo.availableAt && (
+                  <p role="status" className="text-sm text-slate-600 mb-6">
+                    Você poderá fazer uma nova tentativa em <span className="font-bold">{formatTimeUntil(examStatusInfo.availableAt)}</span>.
+                  </p>
+                )}
+                {examStatusInfo?.state === 'can_retake' && (
+                  <p role="status" className="text-sm text-slate-600 mb-6">
+                    O intervalo entre tentativas já passou: você pode refazer esta prova com um novo conjunto de questões.
+                  </p>
+                )}
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  {(examStatusInfo?.state === 'can_retake' || examStatusInfo?.state === 'cooldown') && (
+                    <Button
+                      onClick={() => { resetForNewAttempt(); navigate('/exam'); }}
+                      disabled={examStatusInfo.state === 'cooldown'}
+                      className="px-12"
+                    >
+                      Fazer Nova Tentativa
+                    </Button>
+                  )}
                   <Button onClick={() => navigate('/')} variant="secondary" className="px-12">
                     Voltar ao Início
                   </Button>
@@ -1392,9 +1497,9 @@ const App: React.FC = () => {
                   </span>
                 </summary>
                 <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-                  O fluxo padrão considera uma tentativa única por usuário para o conjunto atual de questões, de forma a
-                  refletir melhor seu nível de preparo em um cenário próximo ao de prova. Novos conjuntos de questões podem
-                  ser disponibilizados periodicamente.
+                  Cada prova pode ser refeita 7 dias depois do último envio, com um novo conjunto de questões. O intervalo
+                  evita decorar respostas por tentativa e erro e reflete melhor seu nível de preparo em um cenário próximo ao
+                  de prova. Você pode pausar uma prova em andamento e continuar depois.
                 </div>
               </details>
 
@@ -1559,9 +1664,38 @@ const App: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
-                      {EXAM_BUTTON_LABEL[examStatus]}
-                    </Button>
+                    {examStatus === 'cooldown' || examStatus === 'can_retake' ? (
+                      <div className="space-y-2 mt-4">
+                        <Button
+                          type="button"
+                          className="w-full py-4"
+                          variant={examStatus === 'cooldown' ? 'primary' : 'outline'}
+                          isLoading={isSubmitting}
+                          onClick={handleOpenResults}
+                        >
+                          {EXAM_BUTTON_LABEL.cooldown}
+                        </Button>
+                        <Button
+                          type="button"
+                          className="w-full py-4"
+                          variant={examStatus === 'can_retake' ? 'primary' : 'outline'}
+                          disabled={examStatus === 'cooldown' || isSubmitting}
+                          aria-describedby="nova-tentativa-dica"
+                          onClick={handleStartNewAttempt}
+                        >
+                          {EXAM_BUTTON_LABEL.can_retake}
+                        </Button>
+                        <p id="nova-tentativa-dica" className="text-xs text-slate-500 text-center">
+                          {examStatus === 'cooldown' && examStatusInfo?.availableAt
+                            ? `Nova tentativa disponível em ${formatTimeUntil(examStatusInfo.availableAt)}.`
+                            : 'Nova tentativa liberada: você receberá um novo conjunto de questões.'}
+                        </p>
+                      </div>
+                    ) : (
+                      <Button type="submit" className="w-full py-4 mt-4" isLoading={isSubmitting}>
+                        {EXAM_BUTTON_LABEL[examStatus]}
+                      </Button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -1799,9 +1933,9 @@ const App: React.FC = () => {
                   </span>
                 </summary>
                 <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-                  O fluxo padrão considera uma tentativa única por usuário para o conjunto atual de questões, de forma a
-                  refletir melhor seu nível de preparo em um cenário próximo ao de prova. Novos conjuntos de questões podem
-                  ser disponibilizados periodicamente.
+                  Cada prova pode ser refeita 7 dias depois do último envio, com um novo conjunto de questões. O intervalo
+                  evita decorar respostas por tentativa e erro e reflete melhor seu nível de preparo em um cenário próximo ao
+                  de prova. Você pode pausar uma prova em andamento e continuar depois.
                 </div>
               </details>
 

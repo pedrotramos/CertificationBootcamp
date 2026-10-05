@@ -64,14 +64,9 @@ const Admin: React.FC = () => {
     const prevExamForCategory = useRef<string>('');
 
     // Results cleanup state
-    const [resultsEmail, setResultsEmail] = useState('');
-    const [resultsExam, setResultsExam] = useState('');
-    const [isDeletingResults, setIsDeletingResults] = useState(false);
-    const [resultsDeleteConfirmOpen, setResultsDeleteConfirmOpen] = useState(false);
 
     // Admin tabs state
     const [activeTab, setActiveTab] = useState<'whitelist' | 'questions' | 'explore' | 'results'>('whitelist');
-    const [resultsView, setResultsView] = useState<'dashboard' | 'maintenance'>('dashboard');
 
     const inputClasses =
         'w-full min-w-0 max-w-full px-4 py-3 rounded bg-[#1B3139] text-white border border-slate-700 focus:border-[#FF3621] focus:ring-1 focus:ring-[#FF3621] outline-none transition-all placeholder-slate-400 placeholder:text-xs sm:placeholder:text-sm';
@@ -459,71 +454,6 @@ const Admin: React.FC = () => {
             setIsSubmittingQuestion(false);
         }
     };
-
-    const handleResultsRequestDelete = (e: React.FormEvent) => {
-        e.preventDefault();
-        setErrorMsg(null);
-        setSuccessMsg(null);
-
-        if (!otpValidated) {
-            setErrorMsg('Autenticação necessária para remover resultados de usuários.');
-            return;
-        }
-
-        if (!resultsEmail.trim()) {
-            setErrorMsg('Informe o e-mail do usuário para remoção dos resultados.');
-            return;
-        }
-
-        setResultsDeleteConfirmOpen(true);
-    };
-
-    const executeDeleteResults = async () => {
-        if (!otpValidated) return;
-
-        setErrorMsg(null);
-        setSuccessMsg(null);
-        setIsDeletingResults(true);
-        try {
-            const user = await dbService.getUserByEmail(resultsEmail.trim());
-            if (!user || !user._id) {
-                setErrorMsg('Usuário não encontrado para o e-mail informado.');
-                setResultsDeleteConfirmOpen(false);
-                return;
-            }
-
-            const examFilter = resultsExam.trim() || undefined;
-            const result = await dbService.deleteUserResults(user._id.toString(), examFilter);
-
-            if (result.deletedCount > 0) {
-                setSuccessMsg(
-                    `Removidos ${result.deletedCount} registro(s) de resultados para ${resultsEmail.trim()}${examFilter ? ` no exame "${examFilter}"` : ''
-                    }.`
-                );
-                setResultsEmail('');
-                setResultsExam('');
-                setResultsDeleteConfirmOpen(false);
-            } else {
-                setErrorMsg('Nenhum registro de resultado encontrado para os critérios informados.');
-                setResultsDeleteConfirmOpen(false);
-            }
-        } catch (err: any) {
-            setErrorMsg(err.message || 'Erro ao remover resultados. Tente novamente.');
-            console.error(err);
-            setResultsDeleteConfirmOpen(false);
-        } finally {
-            setIsDeletingResults(false);
-        }
-    };
-
-    useEffect(() => {
-        if (!resultsDeleteConfirmOpen) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setResultsDeleteConfirmOpen(false);
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [resultsDeleteConfirmOpen]);
 
     return (
         <div className="min-h-screen bg-slate-50 pb-20">
@@ -1156,79 +1086,7 @@ const Admin: React.FC = () => {
                                     )}
 
                                     {activeTab === 'results' && (
-                                        <div className="space-y-5">
-                                            <div className="flex gap-2 border-b border-slate-200">
-                                                <button type="button" onClick={() => setResultsView('dashboard')} className={`px-3 py-2 text-[10px] font-black uppercase ${resultsView === 'dashboard' ? 'border-b-2 border-[#FF3621] text-[#FF3621]' : 'text-slate-500'}`}>Dashboard</button>
-                                                <button type="button" onClick={() => setResultsView('maintenance')} className={`px-3 py-2 text-[10px] font-black uppercase ${resultsView === 'maintenance' ? 'border-b-2 border-[#FF3621] text-[#FF3621]' : 'text-slate-500'}`}>Manutenção</button>
-                                            </div>
-                                            {resultsView === 'dashboard' ? <AdminResultsDashboard email={email.trim()} otp={otp} /> : <form onSubmit={handleResultsRequestDelete} className="space-y-4">
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-black uppercase text-slate-500 tracking-[0.25em]">
-                                                    Remover Resultados de Usuários
-                                                </span>
-                                                <p className="text-[11px] text-slate-600">
-                                                    Limpe registros de resultados para um usuário específico, opcionalmente
-                                                    filtrando por exame.
-                                                </p>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-[10px] font-black uppercase text-slate-400">
-                                                        E-mail do Usuário
-                                                    </label>
-                                                    <input
-                                                        required
-                                                        type="email"
-                                                        className={inputClasses}
-                                                        placeholder="usuario@empresa.com"
-                                                        value={resultsEmail}
-                                                        onChange={(e) => setResultsEmail(e.target.value)}
-                                                        disabled={isDeletingResults || resultsDeleteConfirmOpen}
-                                                    />
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label
-                                                        htmlFor="admin-results-exam"
-                                                        className="text-[10px] font-black uppercase text-slate-400"
-                                                    >
-                                                        Exame (opcional)
-                                                    </label>
-                                                    <select
-                                                        id="admin-results-exam"
-                                                        className={inputClasses}
-                                                        value={resultsExam}
-                                                        onChange={(e) => setResultsExam(e.target.value)}
-                                                        disabled={isDeletingResults || loadingAdminExams || resultsDeleteConfirmOpen}
-                                                    >
-                                                        <option value="">
-                                                            Todos os exames do usuário
-                                                        </option>
-                                                        {adminExamOptions.map((ex) => (
-                                                            <option key={ex} value={ex}>
-                                                                {ex}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                    <p className="text-[9px] text-slate-500 break-words">
-                                                        {loadingAdminExams
-                                                            ? 'Carregando provas cadastradas…'
-                                                            : adminExamOptions.length === 0
-                                                              ? 'Nenhuma prova na base ainda — a remoção aplicará a todos os resultados do usuário.'
-                                                              : 'Deixe “Todos” para apagar resultados de qualquer exame, ou escolha uma prova específica.'}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            <Button
-                                                type="submit"
-                                                className="w-full py-4 mt-4 bg-red-600 hover:bg-red-700"
-                                                disabled={isDeletingResults || resultsDeleteConfirmOpen}
-                                            >
-                                                Remover Resultados
-                                            </Button>
-                                            </form>}
-                                        </div>
+                                        <AdminResultsDashboard email={email.trim()} otp={otp} />
                                     )}
                                 </div>
                             </div>
@@ -1237,61 +1095,6 @@ const Admin: React.FC = () => {
                 </div>
             </main>
 
-            {resultsDeleteConfirmOpen && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50"
-                    role="alertdialog"
-                    aria-modal="true"
-                    aria-labelledby="admin-delete-results-title"
-                >
-                    <button
-                        type="button"
-                        className="absolute inset-0 cursor-default"
-                        aria-label="Fechar"
-                        onClick={() => !isDeletingResults && setResultsDeleteConfirmOpen(false)}
-                    />
-                    <div className="relative bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-md w-full space-y-4">
-                        <h3
-                            id="admin-delete-results-title"
-                            className="text-sm font-black text-[#1B3139] uppercase tracking-tight"
-                        >
-                            Confirmar remoção
-                        </h3>
-                        <p className="text-sm text-slate-600 leading-relaxed">
-                            Os resultados de prova do usuário{' '}
-                            <span className="font-bold text-[#1B3139]">{resultsEmail.trim()}</span>
-                            {resultsExam.trim() ? (
-                                <>
-                                    {' '}
-                                    no exame <span className="font-bold text-[#1B3139]">&quot;{resultsExam.trim()}&quot;</span>
-                                </>
-                            ) : (
-                                <> em todos os exames</>
-                            )}{' '}
-                            serão apagados. Clique em <span className="font-bold">Confirmar</span> para prosseguir.
-                        </p>
-                        <div className="flex flex-col-reverse sm:flex-row gap-2 justify-end">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setResultsDeleteConfirmOpen(false)}
-                                disabled={isDeletingResults}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="button"
-                                className="bg-red-600 hover:bg-red-700"
-                                onClick={executeDeleteResults}
-                                disabled={isDeletingResults}
-                                isLoading={isDeletingResults}
-                            >
-                                Confirmar
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
