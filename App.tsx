@@ -11,6 +11,7 @@ import QuestionView from './components/QuestionView';
 import ResultsChart from './components/ResultsChart';
 import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
+import type { ExamClock } from './types';
 
 const PROHIBITED_DOMAINS = [
   'gmail.com',
@@ -154,6 +155,17 @@ const App: React.FC = () => {
   const [remainingTime, setRemainingTime] = useState<number>(EXAM_DURATION_MS);
   const [isTimeExpired, setIsTimeExpired] = useState<boolean>(false);
   const examTimerRef = useRef<ExamTimer | null>(null);
+  const finishExamRef = useRef<() => Promise<void>>(async () => undefined);
+  const timeoutSubmitRef = useRef(false);
+
+  // Envia a prova quando o tempo acaba (localmente ou segundo o servidor), uma vez por vez
+  const submitOnTimeout = () => {
+    if (timeoutSubmitRef.current) return;
+    timeoutSubmitRef.current = true;
+    void finishExamRef.current().finally(() => {
+      timeoutSubmitRef.current = false;
+    });
+  };
 
   const [formData, setFormData] = useState({ firstName: '', lastName: '', email: '', company: '' });
 
@@ -257,9 +269,6 @@ const App: React.FC = () => {
         // Initialize new timer
         timer = initializeExamTimer(userId, examId);
         saveExamTimer(timer);
-        void dbService.startExamSession(userId, examId).catch(error =>
-          console.error('Failed to track exam session start:', error)
-        );
       } else if (timer.isPaused) {
         // Resume timer - set new start time
         const now = Date.now();
@@ -268,6 +277,12 @@ const App: React.FC = () => {
         timer.lastPauseTime = null;
         saveExamTimer(timer);
       }
+
+      // O servidor é a fonte da verdade do tempo: inicia/retoma o relógio e devolve o tempo restante.
+      // Se ele estiver indisponível, o cronômetro local segue valendo.
+      void dbService.startExamSession(userId, examId)
+        .then(clock => applyServerClock(userId, examId, clock))
+        .catch(error => console.error('Failed to sync exam clock:', error));
 
       setExamTimer(timer);
       examTimerRef.current = timer;
@@ -288,8 +303,63 @@ const App: React.FC = () => {
       saveExamTimer(updatedTimer);
       setExamTimer(updatedTimer);
       examTimerRef.current = updatedTimer;
+      if (user && selectedExam) {
+        void dbService.pauseExamSession(user._id?.toString() || '', selectedExam).catch(error =>
+          console.error('Failed to pause exam clock:', error)
+        );
+      }
     }
   }, [location.pathname, user, selectedExam, questions.length]);
+
+  // Aplica o tempo restante informado pelo servidor ao cronômetro local
+  const applyServerClock = (userId: string, examId: string, clock: ExamClock, onlyIfLower = false) => {
+    const current = examTimerRef.current;
+    if (!current || current.userId !== userId || current.examId !== examId) return;
+    // Backend antigo (sem relógio no servidor) responde sem remainingSeconds: mantém o cronômetro local
+    if (typeof clock?.remainingSeconds !== 'number') return;
+    const serverRemaining = clock.remainingSeconds * 1000;
+    if (onlyIfLower && serverRemaining >= getRemainingTime(current) - 2000) return;
+    const synced: ExamTimer = {
+      ...current,
+      elapsedWhenPaused: EXAM_DURATION_MS - serverRemaining,
+      startTime: Date.now(),
+      isPaused: false,
+      lastPauseTime: null
+    };
+    saveExamTimer(synced);
+    setExamTimer(synced);
+    examTimerRef.current = synced;
+    setRemainingTime(serverRemaining);
+    setIsTimeExpired(serverRemaining <= 0);
+    if (serverRemaining <= 0) {
+      submitOnTimeout();
+    }
+  };
+
+  // Sinal periódico ao servidor enquanto a prova está aberta; o servidor só conta o tempo entre sinais
+  useEffect(() => {
+    if (location.pathname !== '/exam' || !user || !selectedExam || !examTimer || examTimer.isPaused || isTimeExpired) {
+      return;
+    }
+    const userId = user._id?.toString() || '';
+    const interval = setInterval(() => {
+      dbService.heartbeatExamSession(userId, selectedExam)
+        .then(clock => applyServerClock(userId, selectedExam, clock, true))
+        .catch(error => console.error('Failed to send exam heartbeat:', error));
+    }, 30 * 1000);
+    return () => clearInterval(interval);
+  }, [location.pathname, user, selectedExam, examTimer?.isPaused, isTimeExpired]);
+
+  // Fechar a aba também pausa o relógio do servidor
+  useEffect(() => {
+    if (location.pathname !== '/exam' || !user || !selectedExam) return;
+    const userId = user._id?.toString() || '';
+    const pauseOnLeave = () => {
+      void dbService.pauseExamSession(userId, selectedExam, true).catch(() => undefined);
+    };
+    window.addEventListener('pagehide', pauseOnLeave);
+    return () => window.removeEventListener('pagehide', pauseOnLeave);
+  }, [location.pathname, user, selectedExam]);
 
   // Sync ref with timer state
   useEffect(() => {
@@ -314,7 +384,7 @@ const App: React.FC = () => {
         clearInterval(interval);
         // Auto-submit exam when time expires
         if (user && questions.length > 0) {
-          finishExam();
+          submitOnTimeout();
         }
       }
     }, 1000);
@@ -774,6 +844,8 @@ const App: React.FC = () => {
     }
   };
 
+  finishExamRef.current = finishExam;
+
   const inputClasses = "w-full px-4 py-3 rounded bg-[#1B3139] text-white border border-slate-700 focus:border-[#FF3621] focus:ring-1 focus:ring-[#FF3621] outline-none transition-all placeholder-slate-400";
 
   const renderContent = () => {
@@ -811,6 +883,16 @@ const App: React.FC = () => {
                   <span className={`text-xs font-black ${isTimeCritical ? 'animate-pulse' : ''}`}>
                     {isTimeExpired ? '00:00' : timeDisplay}
                   </span>
+                  {!isTimeExpired && (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/')}
+                      title="O tempo para de contar e você continua de onde parou"
+                      className="text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-[#FF3621] underline underline-offset-2"
+                    >
+                      Pausar
+                    </button>
+                  )}
                 </div>
                 <span className="text-xs font-black text-[#FF3621]">
                   {Math.round(progress)}%
@@ -920,6 +1002,11 @@ const App: React.FC = () => {
 
       return (
         <div className="max-w-4xl mx-auto py-12 px-4 space-y-12 animate-in fade-in duration-500">
+          {finalResult.expired && (
+            <div role="alert" className="p-4 bg-red-50 border border-red-200 text-red-700 text-sm font-bold rounded">
+              O tempo da prova se esgotou antes do envio, então as respostas não foram aproveitadas.
+            </div>
+          )}
           <Card className="overflow-hidden border-t-8 border-t-[#1B3139] shadow-2xl bg-white">
             <div className="p-10">
               <div className="text-center space-y-2 mb-8">

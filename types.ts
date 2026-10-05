@@ -43,6 +43,8 @@ export interface ExamResult {
   score: number;
   totalQuestions: number;
   exam: string;
+  /** true quando o servidor encerrou a tentativa por tempo esgotado (as respostas não foram aproveitadas) */
+  expired?: boolean;
   answers: {
     questionId: string;
     selectedOptionId: string;
@@ -52,6 +54,15 @@ export interface ExamResult {
 }
 
 /** Corpo de POST /api/results: nota, acertos e data são calculados pelo servidor. */
+/** Relógio da prova mantido pelo servidor */
+export interface ExamClock {
+  id?: string;
+  durationSeconds: number;
+  remainingSeconds: number;
+  paused: boolean;
+  expired: boolean;
+}
+
 export interface SubmitResultPayload {
   userId: string;
   exam: string;

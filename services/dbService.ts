@@ -1,5 +1,5 @@
 
-import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData, SubmitResultPayload } from '../types';
+import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData, SubmitResultPayload, ExamClock } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
@@ -208,8 +208,17 @@ export const dbService = {
       headers: { 'X-Admin-Email': email, 'X-Admin-Otp': otp },
     }),
 
-  startExamSession: async (userId: string, exam: string): Promise<{ id: string }> =>
-    apiRequest<{ id: string }>('/exam-sessions/start', { method: 'POST', body: JSON.stringify({ userId, exam }) }),
+  /** Inicia ou retoma a prova no servidor; devolve o tempo restante (fonte da verdade do cronômetro). */
+  startExamSession: async (userId: string, exam: string): Promise<ExamClock> =>
+    apiRequest<ExamClock>('/exam-sessions/start', { method: 'POST', body: JSON.stringify({ userId, exam }) }),
+
+  /** Sinal periódico enquanto a prova está aberta. */
+  heartbeatExamSession: async (userId: string, exam: string): Promise<ExamClock> =>
+    apiRequest<ExamClock>('/exam-sessions/heartbeat', { method: 'POST', body: JSON.stringify({ userId, exam }) }),
+
+  /** Pausa o relógio do servidor. `keepalive` deixa a chamada terminar mesmo se a aba estiver sendo fechada. */
+  pauseExamSession: async (userId: string, exam: string, keepalive = false): Promise<ExamClock> =>
+    apiRequest<ExamClock>('/exam-sessions/pause', { method: 'POST', body: JSON.stringify({ userId, exam }), keepalive }),
 
   completeExamSession: async (userId: string, exam: string): Promise<void> => {
     await apiRequest('/exam-sessions/complete', { method: 'POST', body: JSON.stringify({ userId, exam }) });
