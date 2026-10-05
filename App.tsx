@@ -11,9 +11,9 @@ import QuestionView from './components/QuestionView';
 import ResultsChart from './components/ResultsChart';
 import CategoryChart from './components/CategoryChart';
 import Admin from './components/Admin';
-import type { ExamClock } from './types';
+import type { ExamClock, ExamStatusInfo } from './types';
 import ConfirmDialog from './components/ConfirmDialog';
-import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
+import { EXAM_TIMER_KEY, EXAM_BUTTON_LABEL, formatTimeUntil, hasPausedExam, resolveExamStatus, type ExamStatus } from './services/statusProva';
 
 const PROHIBITED_DOMAINS = [
   'gmail.com',
@@ -158,6 +158,8 @@ const App: React.FC = () => {
   const [selectedExam, setSelectedExam] = useState<string>('');
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [examStatus, setExamStatus] = useState<ExamStatus>('new');
+  const [examStatusInfo, setExamStatusInfo] = useState<ExamStatusInfo | null>(null);
+  const [attemptHistory, setAttemptHistory] = useState<ExamResult[]>([]);
   // Só mostra "verificando sessão" se existe um token guardado: visitante novo vê o formulário na hora
   const [isCheckingSession, setIsCheckingSession] = useState<boolean>(() => dbService.hasSession());
   // Ação adiada enquanto o usuário confirma que quer sair da prova em andamento
@@ -245,22 +247,32 @@ const App: React.FC = () => {
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [location.pathname, isTimeExpired]);
 
-  // Rótulo do botão da home: iniciar, continuar (prova pausada) ou conferir resultados
+  // Situação da prova (nova, em andamento, em intervalo ou liberada para nova tentativa): rótulo do botão da home
+  // e aviso de próxima tentativa na tela de resultados. Vem do servidor; sem resposta, vale o cronômetro local.
   useEffect(() => {
-    if (location.pathname !== '/' || !isAuthenticated || !user || !selectedExam) {
+    const onHomeOrResults = location.pathname === '/' || location.pathname === '/results';
+    if (!onHomeOrResults || !isAuthenticated || !user || !selectedExam) {
       setExamStatus('new');
+      setExamStatusInfo(null);
       return;
     }
     const userId = user._id?.toString() || '';
     let cancelled = false;
-    setExamStatus(resolveExamStatus(false, hasPausedExam(userId, selectedExam)));
-    dbService.getUserResults(userId, selectedExam)
-      .then(results => {
-        if (!cancelled) setExamStatus(resolveExamStatus(results.length > 0, hasPausedExam(userId, selectedExam)));
+    setExamStatus(resolveExamStatus(null, hasPausedExam(userId, selectedExam)));
+    dbService.getExamStatus(selectedExam)
+      .then(info => {
+        if (cancelled) return;
+        setExamStatusInfo(info);
+        setExamStatus(resolveExamStatus(info.state, false));
       })
       .catch(error => console.error('Failed to check exam status:', error));
+    if (location.pathname === '/results') {
+      dbService.getUserResults(userId, selectedExam)
+        .then(results => { if (!cancelled) setAttemptHistory(results); })
+        .catch(error => console.error('Failed to load attempt history:', error));
+    }
     return () => { cancelled = true; };
-  }, [location.pathname, isAuthenticated, user, selectedExam]);
+  }, [location.pathname, isAuthenticated, user, selectedExam, finalResult]);
 
   // Load questions when entering exam page
   useEffect(() => {
@@ -280,6 +292,11 @@ const App: React.FC = () => {
           const q = await dbService.getQuestions(examToUse);
           setQuestions(q);
         } catch (err) {
+          if (err instanceof ApiError && err.code === 'COOLDOWN_ACTIVE') {
+            setErrorMsg(`Você já concluiu esta prova. Nova tentativa disponível em ${err.availableAt ? formatTimeUntil(err.availableAt) : 'alguns dias'}.`);
+            navigate('/');
+            return;
+          }
           console.error('Error loading questions:', err);
           setQuestionsLoadFailed(true);
         }
@@ -501,18 +518,13 @@ const App: React.FC = () => {
           const savedExam = localStorage.getItem(SELECTED_EXAM_KEY);
           if (savedExam) {
             setSelectedExam(savedExam);
-            const results = await dbService.getUserResults(existingUser._id.toString(), savedExam);
-            if (results.length > 0) {
-              // User has taken the test - go to results
-              setHasResults(true);
-              const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), savedExam);
-              setQuestions(questions);
-              setFinalResult(results[0]);
-              navigate('/results');
+            const status = await dbService.getExamStatus(savedExam);
+            if (status.state === 'cooldown') {
+              // Enviou há pouco: mostra o resultado
+              await openLatestResult(existingUser._id.toString(), savedExam);
             } else {
-              // User hasn't taken the test - stay on home page to select exam
-              setHasResults(false);
-              // Don't navigate to exam automatically, user needs to select an exam first
+              // Sem tentativa, em andamento ou liberada para nova tentativa: fica na home para escolher a prova
+              setHasResults(status.state === 'can_retake');
             }
           } else {
             // No saved exam - user needs to select an exam first
@@ -544,6 +556,31 @@ const App: React.FC = () => {
     } else {
       action();
     }
+  };
+
+  // Carrega o resultado mais recente (com as questões revisadas) e abre a tela de resultados
+  const openLatestResult = async (userId: string, exam: string) => {
+    const results = await dbService.getUserResults(userId, exam);
+    if (results.length === 0) return;
+    const reviewQuestions = await dbService.getAnsweredQuestions(userId, exam);
+    setHasResults(true);
+    setQuestions(reviewQuestions);
+    setFinalResult(results[0]);
+    navigate('/results');
+  };
+
+  // Começa uma nova tentativa: descarta o que sobrou da anterior (respostas, progresso e cronômetro locais)
+  const resetForNewAttempt = () => {
+    clearExamProgress();
+    clearExamTimer();
+    setExamTimer(null);
+    examTimerRef.current = null;
+    setAnswers({});
+    setCurrentQuestionIndex(0);
+    setQuestions([]);
+    setFinalResult(null);
+    setRemainingTime(EXAM_DURATION_MS);
+    setIsTimeExpired(false);
   };
 
   const handleLogoClick = () => {
@@ -663,22 +700,19 @@ const App: React.FC = () => {
       }
       // Save selected exam to localStorage
       localStorage.setItem(SELECTED_EXAM_KEY, selectedExam);
-      // Check if user has results for this exam
+      // Em intervalo: mostra o resultado; prova nova, em andamento ou liberada para nova tentativa: vai para a prova
       try {
-        const results = await dbService.getUserResults(user._id.toString(), selectedExam);
-        if (results.length > 0) {
-          setHasResults(true);
-          const questions = await dbService.getAnsweredQuestions(user._id.toString(), selectedExam);
-          setQuestions(questions);
-          setFinalResult(results[0]);
-          navigate('/results');
+        const status = await dbService.getExamStatus(selectedExam);
+        if (status.state === 'cooldown') {
+          await openLatestResult(user._id.toString(), selectedExam);
         } else {
-          setHasResults(false);
+          setHasResults(status.state === 'can_retake');
+          if (status.state === 'can_retake') resetForNewAttempt();
           navigate('/exam');
         }
       } catch (err) {
-        console.error('Error checking results:', err);
-        navigate('/exam');
+        console.error('Error checking exam status:', err);
+        setErrorMsg(err instanceof Error ? err.message : 'Não foi possível verificar a prova. Tente novamente.');
       }
       return;
     }
@@ -770,22 +804,17 @@ const App: React.FC = () => {
           setSelectedExam(examToUse);
         }
 
-        const results = await dbService.getUserResults(existingUser._id.toString(), examToUse);
+        const status = await dbService.getExamStatus(examToUse);
 
-        if (results.length > 0) {
-          // User has already taken the test - show results page
-          setHasResults(true);
-          // Fetch answered questions for the selected exam
-          const questions = await dbService.getAnsweredQuestions(existingUser._id.toString(), examToUse);
-          setQuestions(questions);
+        if (status.state === 'cooldown') {
+          // Enviou há pouco - mostra o resultado
           setUser(existingUser);
-          setFinalResult(results[0]);
+          await openLatestResult(existingUser._id.toString(), examToUse);
           setIsSubmitting(false);
-          navigate('/results');
           return;
-        } else {
-          setHasResults(false);
         }
+        if (status.state === 'can_retake') resetForNewAttempt();
+        setHasResults(status.state === 'can_retake');
 
         // User exists but hasn't taken the test - proceed to exam
         if (!selectedExam) {
@@ -1167,8 +1196,41 @@ const App: React.FC = () => {
               })()}
 
               <div className="mt-12 pt-8 border-t border-slate-50 w-full text-center">
-                <p className="text-xs font-black text-slate-300 uppercase tracking-[0.3em] mb-4">Registro de Tentativa Única Concluído</p>
-                <div className="flex justify-center">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em] mb-4">
+                  Tentativa {finalResult.attempt ?? (attemptHistory.length || 1)} concluída
+                </p>
+                {examStatusInfo?.state === 'cooldown' && examStatusInfo.availableAt && (
+                  <p role="status" className="text-sm text-slate-600 mb-6">
+                    Você poderá fazer uma nova tentativa em <span className="font-bold">{formatTimeUntil(examStatusInfo.availableAt)}</span>.
+                  </p>
+                )}
+                {examStatusInfo?.state === 'can_retake' && (
+                  <p role="status" className="text-sm text-slate-600 mb-6">
+                    O intervalo entre tentativas já passou: você pode refazer esta prova com um novo conjunto de questões.
+                  </p>
+                )}
+                {attemptHistory.length > 1 && (
+                  <div className="max-w-md mx-auto mb-8 text-left">
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-2">Histórico de tentativas</h3>
+                    <ul className="divide-y divide-slate-100 text-sm text-slate-700">
+                      {attemptHistory.map((item, index) => (
+                        <li key={item._id?.toString() ?? index} className="flex justify-between py-2">
+                          <span>Tentativa {item.attempt ?? attemptHistory.length - index}</span>
+                          <span className="font-bold">
+                            {item.totalQuestions ? Math.round((item.score / item.totalQuestions) * 100) : 0}%
+                            <span className="ml-3 font-normal text-slate-500">{new Date(item.timestamp).toLocaleDateString('pt-BR')}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div className="flex flex-col sm:flex-row justify-center gap-3">
+                  {examStatusInfo?.state === 'can_retake' && (
+                    <Button onClick={() => { resetForNewAttempt(); navigate('/exam'); }} className="px-12">
+                      Fazer Nova Tentativa
+                    </Button>
+                  )}
                   <Button onClick={() => navigate('/')} variant="secondary" className="px-12">
                     Voltar ao Início
                   </Button>
@@ -1392,9 +1454,9 @@ const App: React.FC = () => {
                   </span>
                 </summary>
                 <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-                  O fluxo padrão considera uma tentativa única por usuário para o conjunto atual de questões, de forma a
-                  refletir melhor seu nível de preparo em um cenário próximo ao de prova. Novos conjuntos de questões podem
-                  ser disponibilizados periodicamente.
+                  Cada prova pode ser refeita 7 dias depois do último envio, com um novo conjunto de questões. O intervalo
+                  evita decorar respostas por tentativa e erro e reflete melhor seu nível de preparo em um cenário próximo ao
+                  de prova. Você pode pausar uma prova em andamento e continuar depois.
                 </div>
               </details>
 
@@ -1799,9 +1861,9 @@ const App: React.FC = () => {
                   </span>
                 </summary>
                 <div className="mt-3 text-sm text-slate-600 leading-relaxed">
-                  O fluxo padrão considera uma tentativa única por usuário para o conjunto atual de questões, de forma a
-                  refletir melhor seu nível de preparo em um cenário próximo ao de prova. Novos conjuntos de questões podem
-                  ser disponibilizados periodicamente.
+                  Cada prova pode ser refeita 7 dias depois do último envio, com um novo conjunto de questões. O intervalo
+                  evita decorar respostas por tentativa e erro e reflete melhor seu nível de preparo em um cenário próximo ao
+                  de prova. Você pode pausar uma prova em andamento e continuar depois.
                 </div>
               </details>
 

@@ -1,5 +1,5 @@
 
-import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData, SubmitResultPayload, ExamClock } from '../types';
+import { User, Question, ExamResult, BrowseQuestionsResponse, AdminResultsDashboardData, SubmitResultPayload, ExamClock, ExamStatusInfo } from '../types';
 
 const API_BASE_URL = (import.meta.env?.VITE_API_URL as string) || 'http://localhost:3001/api';
 
@@ -161,10 +161,19 @@ function adminHeaders(): Record<string, string> {
 
 /** Erro de uma chamada à API: mantém o status HTTP e o código do backend (ex.: FORBIDDEN, RATE_LIMITED). */
 export class ApiError extends Error {
-  constructor(message: string, public readonly status: number, public readonly code?: string) {
+  constructor(message: string, public readonly status: number, public readonly code?: string, public readonly availableAt?: string) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+/** Em COOLDOWN_ACTIVE o servidor informa quando a próxima tentativa é liberada. */
+function availableAtFromBody(body: unknown): string | undefined {
+  if (body !== null && typeof body === 'object' && 'error' in body) {
+    const value = (body as { error?: { availableAt?: unknown } }).error?.availableAt;
+    return typeof value === 'string' ? value : undefined;
+  }
+  return undefined;
 }
 
 function errorCodeFromBody(body: unknown): string | undefined {
@@ -211,7 +220,7 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
     if (code === 'SESSION_INVALID') {
       clearSessionToken();
     }
-    throw new ApiError(errorMessageFromBody(body, `Request failed (${response.status})`), response.status, code);
+    throw new ApiError(errorMessageFromBody(body, `Request failed (${response.status})`), response.status, code, availableAtFromBody(body));
   }
 
   return unwrapApiBody<T>(body);
@@ -390,23 +399,24 @@ export const dbService = {
 
   /** Envia só as respostas escolhidas; o servidor corrige, calcula a nota e define a data. */
   saveResult: async (result: SubmitResultPayload): Promise<ExamResult> => {
-    return apiRequest<ExamResult>('/results', {
+    const saved = await apiRequest<ExamResult>('/results', {
       method: 'POST',
       body: JSON.stringify(result),
     });
+    // A revisão em cache é da tentativa anterior: a nova precisa ser buscada de novo
+    for (const key of [...cache.keys()]) {
+      if (key.startsWith('getAnsweredQuestions:')) cache.delete(key);
+    }
+    return saved;
   },
+
+  /** Situação da prova (nova, em andamento, em intervalo ou liberada para nova tentativa). */
+  getExamStatus: async (exam: string): Promise<ExamStatusInfo> =>
+    apiRequest<ExamStatusInfo>(`/exam-status?exam=${encodeURIComponent(exam)}`),
 
   getUserResults: async (userId: string, exam: string): Promise<ExamResult[]> => {
     const data = await apiRequest<ExamResult[]>(`/results/user/${encodeURIComponent(userId)}?exam=${encodeURIComponent(exam)}`);
     return data;
-  },
-
-  deleteUserResults: async (userId: string, exam?: string): Promise<{ deletedCount: number }> => {
-    const query = exam ? `?exam=${encodeURIComponent(exam)}` : '';
-    return apiRequest<{ deletedCount: number }>(`/results/user/${encodeURIComponent(userId)}${query}`, {
-      method: 'DELETE',
-      headers: adminHeaders(),
-    });
   },
 
   generateOTP: async (email: string): Promise<{ email: string; message?: string }> => {
