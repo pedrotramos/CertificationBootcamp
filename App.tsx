@@ -548,8 +548,8 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
-    // Clear session from localStorage
-    dbService.clearSession();
+    // Descarta o token aqui e revoga a sessão no servidor
+    void dbService.logout();
     localStorage.removeItem(SELECTED_EXAM_KEY);
 
     // Reset all user-related state
