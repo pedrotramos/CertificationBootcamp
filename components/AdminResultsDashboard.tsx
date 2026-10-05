@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { dbService } from '../services/dbService';
 import { AdminResultAttempt } from '../types';
+import ErrorBoundary from './ErrorBoundary';
 
 const PASS = '#00A972';
 const FAIL = '#FF3621';
@@ -18,9 +19,15 @@ const duration = (milliseconds: number | null) => {
   return minutes >= 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}min` : `${minutes} min`;
 };
 const dateKey = (value: string) => value.slice(0, 7);
+// Resultados antigos podem vir sem timestamp (o backend devolve ''); eles ficam fora da série mensal
+const isMonthKey = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
 const labelMonth = (value: string) => {
   const [year, month] = value.split('-').map(Number);
   return new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit' }).format(new Date(year, month - 1, 1));
+};
+const formatDate = (value: string) => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString('pt-BR');
 };
 
 function useClampedTooltip(width = 240, height = 96) {
@@ -61,7 +68,7 @@ const SearchFilter: React.FC<{ id: string; label: string; placeholder: string; v
   </label>
 );
 
-const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = ({ email, otp }) => {
+const AdminResultsDashboardContent: React.FC<{ email: string; otp: string }> = ({ email, otp }) => {
   const [attempts, setAttempts] = useState<AdminResultAttempt[]>([]);
   const [sessions, setSessions] = useState<Awaited<ReturnType<typeof dbService.getAdminResultsDashboard>>['sessions']>([]);
   const [updatedAt, setUpdatedAt] = useState('');
@@ -122,7 +129,7 @@ const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = ({ email
 
   const trend = useMemo(() => {
     const map = new Map<string, { sum: number; count: number }>();
-    filtered.forEach(a => { const k = dateKey(a.timestamp); const v = map.get(k) || { sum: 0, count: 0 }; v.sum += a.percentage; v.count += 1; map.set(k, v); });
+    filtered.forEach(a => { const k = dateKey(a.timestamp); if (!isMonthKey(k)) return; const v = map.get(k) || { sum: 0, count: 0 }; v.sum += a.percentage; v.count += 1; map.set(k, v); });
     return [...map.entries()].sort().map(([month, v]) => ({ month, label: labelMonth(month), score: v.sum / v.count }));
   }, [filtered]);
 
@@ -225,11 +232,18 @@ const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = ({ email
 
       <Panel title="Resultados por usuário" subtitle="Detalhe pesquisável pelos filtros acima; ordenação e paginação local">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-3"><label className="space-y-1"><span className="block text-[9px] font-black uppercase text-slate-500">Buscar na tabela</span><input value={tableSearch} onChange={e => setTableSearch(e.target.value)} placeholder="Nome ou empresa" className="rounded border border-slate-300 p-2 text-xs" /></label><div className="flex items-center gap-3"><span className="text-[10px] text-slate-500">Página {page} de {pageCount}</span><select aria-label="Ordenar resultados" value={sort} onChange={e => setSort(e.target.value as 'date'|'score')} className="rounded border border-slate-300 p-2 text-xs"><option value="date">Mais recentes</option><option value="score">Maior nota</option></select></div></div>
-        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-wider text-slate-500">{['Nome','E-mail','Empresa','Exame','Nota','Status','Data'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{rows.map(a => <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="p-2 font-bold">{a.name}</td><td className="p-2">{a.email || '—'}</td><td className="p-2">{a.company}</td><td className="p-2">{a.exam}</td><td className={`p-2 font-black ${a.passed ? 'text-green-600':'text-[#FF3621]'}`}>{pct(a.percentage)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${a.passed ? 'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}>{a.passed ? 'Aprovado':'Reprovado'}</span></td><td className="p-2">{new Date(a.timestamp).toLocaleDateString('pt-BR')}</td></tr>)}</tbody></table></div>
+        <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead><tr className="border-b text-[9px] uppercase tracking-wider text-slate-500">{['Nome','E-mail','Empresa','Exame','Nota','Status','Data'].map(h => <th key={h} className="p-2">{h}</th>)}</tr></thead><tbody>{rows.map(a => <tr key={a.id} className="border-b border-slate-100 hover:bg-slate-50"><td className="p-2 font-bold">{a.name}</td><td className="p-2">{a.email || '—'}</td><td className="p-2">{a.company}</td><td className="p-2">{a.exam}</td><td className={`p-2 font-black ${a.passed ? 'text-green-600':'text-[#FF3621]'}`}>{pct(a.percentage)}</td><td className="p-2"><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${a.passed ? 'bg-green-50 text-green-700':'bg-red-50 text-red-700'}`}>{a.passed ? 'Aprovado':'Reprovado'}</span></td><td className="p-2">{formatDate(a.timestamp)}</td></tr>)}</tbody></table></div>
         <div className="mt-4 flex justify-end gap-2"><button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="rounded border px-3 py-2 text-[10px] font-black uppercase disabled:opacity-30">Anterior</button><button disabled={page === pageCount} onClick={() => setPage(p => p + 1)} className="rounded border px-3 py-2 text-[10px] font-black uppercase disabled:opacity-30">Próxima</button></div>
       </Panel>
     </>}
   </div>;
 };
+
+// O ErrorBoundary garante uma mensagem de erro visível em vez de tela em branco
+const AdminResultsDashboard: React.FC<{ email: string; otp: string }> = props => (
+  <ErrorBoundary titulo="Não foi possível exibir o dashboard de resultados.">
+    <AdminResultsDashboardContent {...props} />
+  </ErrorBoundary>
+);
 
 export default AdminResultsDashboard;
