@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AppState, User, Question, ExamResult, Answers } from './types';
-import { dbService } from './services/dbService';
+import { dbService, ApiError } from './services/dbService';
 import { SIMULADO_QUESTION_COUNT } from './constants/simulado';
 // import { geminiService } from './services/geminiService';
 import Button from './components/Button';
@@ -28,6 +28,13 @@ const PROHIBITED_DOMAINS = [
 const EXAM_PROGRESS_KEY = 'examProgress';
 const SELECTED_EXAM_KEY = 'selectedExam';
 const EXAM_TIMER_KEY = 'examTimer';
+
+// Mensagem para erros de envio/validação do OTP; o limite por IP do backend responde 429 (RATE_LIMITED)
+function otpErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof ApiError && err.code === 'RATE_LIMITED'
+    ? 'Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.'
+    : fallback;
+}
 
 const EXAM_DURATION_MS = 90 * 60 * 1000; // 90 minutes in milliseconds
 
@@ -506,7 +513,7 @@ const App: React.FC = () => {
     navigate('/');
   };
 
-  const validateEmail = (email: string, isWhitelisted: boolean): { isValid: boolean; message: string | null } => {
+  const validateEmail = (email: string): { isValid: boolean; message: string | null } => {
     const emailLower = email.toLowerCase().trim();
     if (!emailLower) return { isValid: false, message: 'O e-mail é obrigatório.' };
 
@@ -515,13 +522,6 @@ const App: React.FC = () => {
       return {
         isValid: false,
         message: 'Utilize apenas e-mails corporativos. Provedores gratuitos não são permitidos.'
-      };
-    }
-
-    if (!isWhitelisted) {
-      return {
-        isValid: false,
-        message: 'Seu domínio de email não está liberado para uso. Solicite a liberação.'
       };
     }
 
@@ -573,14 +573,7 @@ const App: React.FC = () => {
         return;
       }
 
-      const domainCheck = await dbService.checkDomain(formData.email);
-
-      // Store company from domain check (will be used when saving user)
-      if (domainCheck.company) {
-        setFormData(prev => ({ ...prev, company: domainCheck.company! }));
-      }
-
-      const emailValidation = validateEmail(formData.email, domainCheck.whitelisted);
+      const emailValidation = validateEmail(formData.email);
       if (!emailValidation.isValid) {
         setErrorMsg(emailValidation.message);
         return;
@@ -591,7 +584,12 @@ const App: React.FC = () => {
         await dbService.generateOTP(formData.email);
         setOtpSent(true);
       } catch (err) {
-        setErrorMsg('Ocorreu um erro ao gerar o código de verificação. Tente novamente.');
+        // O backend recusa o envio para domínios não liberados; a empresa vem do domínio no cadastro
+        setErrorMsg(
+          err instanceof ApiError && err.code === 'FORBIDDEN'
+            ? 'Seu domínio de email não está liberado para uso. Solicite a liberação.'
+            : otpErrorMessage(err, 'Ocorreu um erro ao gerar o código de verificação. Tente novamente.')
+        );
         console.error(err);
       } finally {
         setIsSubmitting(false);
@@ -619,7 +617,7 @@ const App: React.FC = () => {
         setErrorMsg(result.message || 'Código OTP inválido. Tente novamente.');
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Ocorreu um erro ao validar o código. Tente novamente.');
+      setErrorMsg(otpErrorMessage(err, err.message || 'Ocorreu um erro ao validar o código. Tente novamente.'));
       console.error(err);
     } finally {
       setIsValidatingOtp(false);

@@ -157,6 +157,22 @@ function adminHeaders(): Record<string, string> {
   return adminAuth ? { 'X-Admin-Email': adminAuth.email, 'X-Admin-Otp': adminAuth.otp } : {};
 }
 
+/** Erro de uma chamada à API: mantém o status HTTP e o código do backend (ex.: FORBIDDEN, RATE_LIMITED). */
+export class ApiError extends Error {
+  constructor(message: string, public readonly status: number, public readonly code?: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+function errorCodeFromBody(body: unknown): string | undefined {
+  if (body !== null && typeof body === 'object' && 'error' in body) {
+    const code = (body as { error?: { code?: unknown } }).error?.code;
+    return typeof code === 'string' ? code : undefined;
+  }
+  return undefined;
+}
+
 async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T> {
   // `headers` é separado de `...rest` para não sobrescrever o Content-Type ao enviar cabeçalhos extras
   const { headers, ...rest } = options ?? {};
@@ -175,13 +191,11 @@ async function apiRequest<T>(endpoint: string, options?: RequestInit): Promise<T
 
   if (!response.ok) {
     // Token expirado/inválido: descarta a sessão para o app voltar à tela de login
-    if (
-      body !== null && typeof body === 'object' && 'error' in body &&
-      (body as { error?: { code?: string } }).error?.code === 'SESSION_INVALID'
-    ) {
+    const code = errorCodeFromBody(body);
+    if (code === 'SESSION_INVALID') {
       clearSessionToken();
     }
-    throw new Error(errorMessageFromBody(body, `Request failed (${response.status})`));
+    throw new ApiError(errorMessageFromBody(body, `Request failed (${response.status})`), response.status, code);
   }
 
   return unwrapApiBody<T>(body);
@@ -349,11 +363,6 @@ export const dbService = {
       method: 'DELETE',
       headers: adminHeaders(),
     });
-  },
-
-  checkDomain: async (email: string): Promise<{ whitelisted: boolean; company?: string }> => {
-    const domain = email.split('@')[1];
-    return apiRequest<{ whitelisted: boolean; company?: string }>(`/domain/${encodeURIComponent(domain)}`);
   },
 
   generateOTP: async (email: string): Promise<{ email: string; message?: string }> => {
