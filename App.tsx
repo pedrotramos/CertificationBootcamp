@@ -2054,7 +2054,7 @@ const App: React.FC = () => {
                 >
                   Resultados
                 </button>
-              ) : (
+              ) : selectedExam && examStatus === 'in_progress' ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -2064,6 +2064,17 @@ const App: React.FC = () => {
                   className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
                 >
                   Prova
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    guardLeave(handleGoHome);
+                  }}
+                  className="text-left text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors py-2"
+                >
+                  Home
                 </button>
               )
             ) : (
@@ -2178,13 +2189,21 @@ const App: React.FC = () => {
                 >
                   Resultados
                 </button>
-              ) : (
+              ) : selectedExam && examStatus === 'in_progress' ? (
                 <button
                   type="button"
                   onClick={handleNavigateToExam}
                   className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
                 >
                   Prova
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => guardLeave(handleGoHome)}
+                  className="text-xs md:text-xs font-black uppercase tracking-[0.25em] text-slate-200 hover:text-white transition-colors"
+                >
+                  Home
                 </button>
               )
             ) : (

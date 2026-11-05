@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Question, Option } from '../types';
 import Card from './Card';
 
@@ -8,6 +8,18 @@ interface QuestionViewProps {
   selectedOptionId?: string;
   onSelectOption: (optionId: string) => void;
 }
+
+const ImageWithFallback: React.FC<{ src: string; alt: string; className?: string }> = ({ src, alt, className }) => {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="w-full p-4 text-center text-sm font-bold text-slate-500 bg-slate-50 border border-dashed border-slate-300 rounded">
+        Imagem indisponível — o conteúdo desta questão não depende mais de imagem externa; avise o suporte se algo parecer faltar.
+      </div>
+    );
+  }
+  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} loading="lazy" />;
+};
 
 const QuestionView: React.FC<QuestionViewProps> = ({
   question,
@@ -27,7 +39,7 @@ const QuestionView: React.FC<QuestionViewProps> = ({
         />
         {question.enunciadoImageUrl && (
           <div className="bg-white p-2 border border-slate-200 rounded overflow-hidden">
-            <img
+            <ImageWithFallback
               src={question.enunciadoImageUrl}
               alt="Contexto Técnico"
               className="w-full h-auto max-w-full rounded shadow-sm grayscale-0 hover:grayscale-0 transition-all object-contain"
@@ -73,7 +85,7 @@ const QuestionView: React.FC<QuestionViewProps> = ({
               />
               {option.imageUrl && (
                 <div className="bg-white p-1 rounded border border-slate-100 overflow-hidden flex-shrink-0 w-full sm:w-auto">
-                  <img
+                  <ImageWithFallback
                     src={option.imageUrl}
                     alt={option.text}
                     className="max-w-full h-auto object-contain"
