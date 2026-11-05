@@ -524,6 +524,7 @@ const App: React.FC = () => {
             if (status.state === 'cooldown') {
               // Enviou há pouco: mostra o resultado
               await openLatestResult(existingUser._id.toString(), savedExam);
+              return 'results';
             } else {
               // Sem tentativa, em andamento ou liberada para nova tentativa: fica na home para escolher a prova
               setHasResults(status.state === 'can_retake');
@@ -533,7 +534,7 @@ const App: React.FC = () => {
             setHasResults(false);
             // User hasn't taken the test - stay on home page to select exam
           }
-          return true; // Session found and restored
+          return 'restored'; // Session found and restored
         } else {
           // User not found - clear invalid session
           dbService.clearSession();
@@ -640,8 +641,8 @@ const App: React.FC = () => {
   const handleGoHome = async () => {
     setIsMobileMenuOpen(false);
     // Check if user has an existing session
-    const hasSession = await checkExistingSession();
-    if (!hasSession) {
+    const sessionOutcome = await checkExistingSession();
+    if (!sessionOutcome) {
       // No session - go to home page
       navigate('/');
       // Reset OTP state
@@ -649,8 +650,12 @@ const App: React.FC = () => {
       setOtpValidated(false);
       setOtp('');
       setErrorMsg(null);
+      return;
     }
-    // If hasSession is true, checkExistingSession already navigated to the appropriate page
+    // Com sessão, só o cooldown já navega sozinho (para /results); nos demais casos, volta para a home
+    if (sessionOutcome !== 'results') {
+      navigate('/');
+    }
   };
 
   const handleNavigateToResults = async () => {
@@ -1402,10 +1407,10 @@ const App: React.FC = () => {
                   que estejam em preparação ativa para certificações Databricks.
                 </p>
                 <a
-                  href="mailto:pedro.ramos@databricks.com?subject=Certification%20PrepCamp%20-%20D%C3%BAvidas%20e%20Feedbacks"
+                  href="mailto:support@databricks-prepcamp.com?subject=Certification%20PrepCamp%20-%20D%C3%BAvidas%20e%20Feedbacks"
                   className="inline-flex items-center gap-2 text-sm font-bold text-[#FF3621] hover:text-[#E6311D] underline underline-offset-4 decoration-[#FF3621]"
                 >
-                  pedro.ramos@databricks.com
+                  support@databricks-prepcamp.com
                   <svg aria-hidden="true"
                     className="w-4 h-4"
                     fill="none"
